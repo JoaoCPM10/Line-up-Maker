@@ -295,6 +295,22 @@
     color:var(--muted);font-size:10px;flex-shrink:0;
   }
   .photo-picker .prev img{width:100%;height:100%;object-fit:cover;}
+  .name-suggestions{
+    margin-top:6px;border:1px solid var(--line);border-radius:8px;
+    overflow:hidden;background:var(--panel-2);
+  }
+  .name-suggestions .suggestion{
+    display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;
+  }
+  .name-suggestions .suggestion:hover{background:var(--panel);}
+  .name-suggestions .suggestion+.suggestion{border-top:1px solid var(--line);}
+  .name-suggestions .suggestion img{
+    width:28px;height:28px;border-radius:50%;object-fit:cover;
+    flex-shrink:0;background:var(--panel);
+  }
+  .name-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
+  .name-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .name-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
   input[type=file]{display:none;}
   .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
@@ -430,6 +446,7 @@
     <div class="field">
       <label>Nome</label>
       <input type="text" id="modalName" maxlength="22">
+      <div class="name-suggestions" id="nameSuggestions" hidden></div>
     </div>
     <div class="modal-actions">
       <button class="btn ghost danger" id="modalRemovePhoto">Remover foto</button>
@@ -520,6 +537,95 @@ function resizeImageFile(file, size, cb){
   reader.readAsDataURL(file);
 }
 
+// Busca de foto por nome digitado: usa APIs públicas gratuitas direto do
+// navegador (sem chave, sem servidor próprio). TheSportsDB primeiro, porque
+// devolve foto já recortada com fundo transparente e time associado; se não
+// achar nada (ou a API estiver fora do ar), cai para o resumo da Wikipédia.
+// Nenhuma das duas é garantida por contrato, então isso é best-effort: se
+// falhar, o app segue funcionando com upload manual normalmente.
+async function searchPlayerPhoto(name){
+  name = name.trim();
+  if(name.length < 3) return [];
+
+  try{
+    const res = await fetch('https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=' + encodeURIComponent(name));
+    if(res.ok){
+      const data = await res.json();
+      const players = (data && data.player) || [];
+      const withPhoto = players.filter(pl => pl.strCutout || pl.strThumb || pl.strRender);
+      if(withPhoto.length){
+        return withPhoto.slice(0,3).map(pl => ({
+          label: pl.strPlayer,
+          sub: pl.strTeam || pl.strNationality || '',
+          photo: pl.strCutout || pl.strThumb || pl.strRender
+        }));
+      }
+    }
+  }catch(err){ /* API instável ou sem internet: segue pro fallback */ }
+
+  try{
+    const title = name.replace(/\s+/g,'_');
+    const res = await fetch('https://pt.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.thumbnail && data.thumbnail.source){
+        return [{ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source }];
+      }
+    }
+  }catch(err){ /* sem artigo ou sem internet: sem sugestão */ }
+
+  return [];
+}
+
+// Baixa a foto sugerida e converte para data: URL passando por canvas, igual
+// ao upload manual (resizeImageFile) — necessário porque a exportação em PNG
+// desenha as fotos num canvas, e uma <img> cross-origin sem isso contamina o
+// canvas e quebra o toBlob() da exportação.
+function urlToDataUrl(url, size, cb){
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = ()=>{
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+    const s = Math.min(img.width, img.height);
+    const sx = (img.width-s)/2, sy = (img.height-s)/2;
+    ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+    try{
+      cb(c.toDataURL('image/jpeg',0.85));
+    }catch(err){
+      // canvas contaminado: a imagem não liberou CORS, não dá pra usar
+      cb(null);
+    }
+  };
+  img.onerror = ()=> cb(null);
+  img.src = url;
+}
+
+function renderNameSuggestions(candidates){
+  const box = document.getElementById('nameSuggestions');
+  if(!candidates.length){ box.hidden = true; box.innerHTML=''; return; }
+  box.innerHTML = candidates.map((c,i)=>`
+    <div class="suggestion" data-i="${i}">
+      <img src="${c.photo}">
+      <div class="suggestion-text">
+        <span class="suggestion-name">${c.label}</span>
+        <span class="suggestion-sub">${c.sub}</span>
+      </div>
+    </div>
+  `).join('');
+  box.hidden = false;
+  box.querySelectorAll('.suggestion').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const c = candidates[+el.dataset.i];
+      urlToDataUrl(c.photo, 160, dataUrl=>{
+        if(dataUrl) document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
+        box.hidden = true; box.innerHTML='';
+      });
+    });
+  });
+}
+
 function render(){
   document.getElementById('hnameShow').textContent = state.teamName || "Meu Time";
   document.getElementById('hformShow').textContent = state.formation;
@@ -604,9 +710,15 @@ function openModal(kind, index){
   document.getElementById('modalName').value = p.name||'';
   const prev = document.getElementById('modalPhotoPrev');
   prev.innerHTML = p.photo? `<img src="${p.photo}">` : 'foto';
+  clearTimeout(nameSuggestTimer);
+  const suggestions = document.getElementById('nameSuggestions');
+  suggestions.hidden = true; suggestions.innerHTML='';
   document.getElementById('modalOverlay').classList.add('open');
 }
 function closeModal(){
+  clearTimeout(nameSuggestTimer);
+  const suggestions = document.getElementById('nameSuggestions');
+  suggestions.hidden = true; suggestions.innerHTML='';
   document.getElementById('modalOverlay').classList.remove('open');
   editing=null;
 }
@@ -636,6 +748,18 @@ document.getElementById('modalPhotoFile').addEventListener('change', e=>{
   resizeImageFile(f, 160, dataUrl=>{
     document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
   });
+});
+
+let nameSuggestTimer = null;
+document.getElementById('modalName').addEventListener('input', e=>{
+  clearTimeout(nameSuggestTimer);
+  const value = e.target.value;
+  const box = document.getElementById('nameSuggestions');
+  if(value.trim().length < 3){ box.hidden = true; box.innerHTML=''; return; }
+  nameSuggestTimer = setTimeout(async ()=>{
+    const candidates = await searchPlayerPhoto(value);
+    renderNameSuggestions(candidates);
+  }, 500);
 });
 
 document.getElementById('teamName').addEventListener('input', e=>{ state.teamName=e.target.value; render(); });
