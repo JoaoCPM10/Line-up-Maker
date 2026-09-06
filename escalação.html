@@ -468,10 +468,15 @@ function generateFormation(key){
   const lines = key.split('-').map(Number);
   const n = lines.length;
   const positions = [{x:6,y:50,r:'GOL'}];
+  const MAX_SPAN = 76;   // span usado antes para linhas cheias (mantém o comportamento nelas)
+  const STEP = 19;       // distância ideal entre jogadores vizinhos de uma linha
   lines.forEach((count,i)=>{
     const x = n>1 ? 18 + i*(64/(n-1)) : 50;
+    // linhas com poucos jogadores usam um span menor (proporcional ao STEP),
+    // centralizado em 50%, em vez de sempre ocupar o span máximo do campo
+    const span = count>1 ? Math.min(MAX_SPAN, STEP*(count-1)) : 0;
     for(let p=0;p<count;p++){
-      const y = count>1 ? 12 + p*(76/(count-1)) : 50;
+      const y = count>1 ? 50 - span/2 + p*(span/(count-1)) : 50;
       positions.push({x, y, r: roleForLine(i,n,count,p)});
     }
   });
