@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Gerador de Escalação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+    --ink:#0f1418;
+    --panel:#161d22;
+    --panel-2:#1d262c;
+    --line:#2a343b;
+    --text:#e9eef0;
+    --muted:#8b9aa3;
+    --pitch-a:#1b4332;
+    --pitch-b:#204a3a;
+    --chalk:#eef4ef;
+    --accent:#2f6fed;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{overflow-x:hidden;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    width:100%;
+  }
+  h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
+  .app{
+    max-width:1180px;
+    width:100%;
+    margin:0 auto;
+    padding:28px 20px 60px;
+  }
+  .top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .top h1{
+    font-size:22px;
+    font-weight:600;
+    letter-spacing:.2px;
+    margin:0;
+  }
+  .top p{
+    margin:4px 0 0;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+  .controls{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px;
+    margin-bottom:16px;
+  }
+  .field label{
+    display:block;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  .field input[type=text],.field select{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:7px;
+    padding:8px 9px;
+    font-size:13.5px;
+    font-family:inherit;
+  }
+  .field input[type=color]{
+    width:100%;
+    height:34px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:7px;
+    padding:2px;
+  }
+  .btn{
+    appearance:none;
+    border:1px solid var(--line);
+    background:var(--panel-2);
+    color:var(--text);
+    padding:9px 14px;
+    border-radius:7px;
+    font-size:13.5px;
+    font-weight:500;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  .btn:hover{border-color:#3a464e;}
+  .btn.primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+    font-weight:600;
+  }
+  .btn.ghost{background:transparent;}
+  .btn.small{padding:6px 10px;font-size:12px;}
+  .btn.danger{color:#ff8a80;}
+  .actions-row{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .badge-upload{
+    width:34px;height:34px;border-radius:50%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;overflow:hidden;flex-shrink:0;
+    font-size:11px;color:var(--muted);text-align:center;
+  }
+  .badge-upload img{width:100%;height:100%;object-fit:cover;}
+
+  .pitch-wrap{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    border-radius:var(--radius);
+    overflow:hidden;
+    border:1px solid var(--line);
+    background:
+      repeating-linear-gradient(90deg,var(--pitch-a) 0 8.333%,var(--pitch-b) 8.333% 16.666%);
+  }
+  .pitch-lines{position:absolute;inset:0;}
+  .pl{
+    position:absolute;
+    border-color:rgba(255,255,255,.55);
+    pointer-events:none;
+    box-sizing:border-box;
+  }
+  .pl-boundary{left:1%;top:4%;width:98%;height:92%;border:2px solid;border-color:rgba(255,255,255,.55);}
+  .pl-halfline{left:50%;top:4%;width:2px;height:92%;background:rgba(255,255,255,.55);transform:translateX(-1px);}
+  /* círculos: largura e altura em % precisam manter a razão 16:9 do campo para não virar elipse */
+  .pl-circle{left:50%;top:50%;width:12%;height:21.34%;transform:translate(-50%,-50%);border:2px solid;border-radius:50%;}
+  .pl-dot{left:50%;top:50%;width:.8%;height:1.42%;transform:translate(-50%,-50%);background:rgba(255,255,255,.55);border-radius:50%;}
+  .pl-box{top:30%;width:12%;height:40%;border:2px solid;}
+  .pl-box-left{left:1%;}
+  .pl-box-right{right:1%;}
+  .pl-box-left-small{left:1%;top:38%;width:5%;height:24%;border:2px solid;}
+  .pl-box-right-small{right:1%;top:38%;width:5%;height:24%;border:2px solid;}
+  .header-tag{
+    position:absolute;
+    top:14px;left:16px;
+    display:flex;align-items:center;gap:9px;
+    z-index:5;
+  }
+  .header-tag .hbadge{
+    width:34px;height:34px;border-radius:50%;
+    background:rgba(255,255,255,.12);
+    border:1.5px solid rgba(255,255,255,.55);
+    overflow:hidden;flex-shrink:0;
+  }
+  .header-tag .hbadge img{width:100%;height:100%;object-fit:cover;}
+  .header-tag .htext .hname{
+    color:var(--chalk);
+    font-family:'Oswald',sans-serif;
+    font-size:16px;font-weight:600;letter-spacing:.3px;
+    text-shadow:0 1px 3px rgba(0,0,0,.5);
+  }
+  .header-tag .htext .hform{
+    color:rgba(255,255,255,.75);
+    font-size:11px;
+  }
+  .token{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    display:flex;flex-direction:column;align-items:center;
+    cursor:grab;
+    user-select:none;
+    touch-action:none;
+    z-index:4;
+    width:76px;
+  }
+  .token:active{cursor:grabbing;}
+  .token .circle{
+    width:44px;height:44px;border-radius:50%;
+    border:2.5px solid var(--chalk);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    background:var(--kit,var(--accent));
+  }
+  .token .circle img{width:100%;height:100%;object-fit:cover;}
+  .token .token-num{color:#fff;font-size:17px;font-weight:600;}
+  .token .tname{
+    margin-top:3px;
+    color:var(--chalk);
+    font-size:10.5px;
+    font-weight:600;
+    text-align:center;
+    text-shadow:0 1px 3px rgba(0,0,0,.6);
+    max-width:76px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .token .tpos{
+    color:rgba(255,255,255,.7);
+    font-size:8.5px;
+    letter-spacing:.4px;
+  }
+
+  .bench-section{margin-top:16px;}
+  .bench-section h2{
+    font-size:13px;font-weight:600;color:var(--muted);
+    margin:0 0 8px;letter-spacing:.2px;
+  }
+  .bench-strip{
+    display:flex;gap:10px;overflow-x:auto;
+    padding-bottom:6px;
+  }
+  .bench-card{
+    flex:0 0 auto;
+    width:84px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:9px;
+    padding:8px 6px 9px;
+    text-align:center;
+    cursor:pointer;
+  }
+  .bench-card .circle{
+    width:38px;height:38px;border-radius:50%;
+    margin:0 auto 6px;
+    border:2px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    background:var(--kit,var(--accent));
+  }
+  .bench-card .circle img{width:100%;height:100%;object-fit:cover;}
+  .bench-card .circle .num{color:#fff;font-size:14px;font-weight:600;}
+  .bench-card .bname{font-size:10.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bench-card .bpos{font-size:9px;color:var(--muted);}
+  .bench-add{
+    flex:0 0 auto;width:84px;
+    border:1px dashed var(--line);
+    border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:22px;cursor:pointer;
+    background:transparent;
+  }
+
+  .saved-row{
+    display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;
+  }
+  .saved-chip{
+    display:flex;align-items:center;gap:6px;
+    background:var(--panel-2);border:1px solid var(--line);
+    border-radius:20px;padding:5px 6px 5px 12px;font-size:12.5px;
+  }
+  .saved-chip button{
+    background:none;border:none;color:var(--muted);
+    cursor:pointer;font-size:14px;padding:2px 6px;
+  }
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);
+    display:none;align-items:center;justify-content:center;z-index:50;
+    padding:16px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:20px;
+    width:100%;max-width:340px;
+  }
+  .modal h3{margin:0 0 14px;font-size:15px;font-weight:600;}
+  .modal .field{margin-bottom:10px;}
+  .modal .row2{display:flex;gap:10px;}
+  .modal .row2 .field{flex:1;}
+  .photo-picker{
+    display:flex;align-items:center;gap:10px;margin-bottom:12px;
+  }
+  .photo-picker .prev{
+    width:52px;height:52px;border-radius:50%;
+    background:var(--panel-2);border:1px solid var(--line);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:10px;flex-shrink:0;
+  }
+  .photo-picker .prev img{width:100%;height:100%;object-fit:cover;}
+  .modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
+  input[type=file]{display:none;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="top">
+    <div>
+      <h1>Gerador de escalação</h1>
+      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1280×720) para usar como overlay no vídeo.</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="field">
+      <label>Nome do time</label>
+      <input type="text" id="teamName" placeholder="Ex: Flamengo" value="Meu Time">
+    </div>
+    <div class="field">
+      <label>Cor da camisa</label>
+      <input type="color" id="teamColor" value="#2f6fed">
+    </div>
+    <div class="field">
+      <label>Formação</label>
+      <select id="formationSelect">
+        <optgroup label="Linha de 2 zagueiros">
+          <option value="2-3-4-1">2-3-4-1</option>
+        </optgroup>
+        <optgroup label="Linha de 4 zagueiros">
+          <option value="4-4-2">4-4-2</option>
+          <option value="4-3-3">4-3-3</option>
+          <option value="4-2-3-1">4-2-3-1</option>
+          <option value="4-1-4-1">4-1-4-1</option>
+          <option value="4-3-1-2">4-3-1-2</option>
+          <option value="4-4-1-1">4-4-1-1</option>
+          <option value="4-5-1">4-5-1</option>
+          <option value="4-2-2-2">4-2-2-2</option>
+          <option value="4-3-2-1">4-3-2-1</option>
+          <option value="4-1-3-2">4-1-3-2</option>
+          <option value="4-1-2-3">4-1-2-3</option>
+          <option value="4-2-4">4-2-4</option>
+          <option value="4-2-1-3">4-2-1-3</option>
+        </optgroup>
+        <optgroup label="Linha de 3 zagueiros">
+          <option value="3-5-2">3-5-2</option>
+          <option value="3-4-3">3-4-3</option>
+          <option value="3-4-2-1">3-4-2-1</option>
+          <option value="3-4-1-2">3-4-1-2</option>
+          <option value="3-1-4-2">3-1-4-2</option>
+          <option value="3-5-1-1">3-5-1-1</option>
+          <option value="3-3-1-3">3-3-1-3</option>
+          <option value="3-3-3-1">3-3-3-1</option>
+          <option value="3-2-4-1">3-2-4-1</option>
+        </optgroup>
+        <optgroup label="Linha de 5 zagueiros">
+          <option value="5-3-2">5-3-2</option>
+          <option value="5-2-3">5-2-3</option>
+          <option value="5-4-1">5-4-1</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="field">
+      <label>Escudo do time</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="badge-upload" id="badgeUpload">+</div>
+        <input type="file" id="badgeFile" accept="image/*">
+        <span style="font-size:11.5px;color:var(--muted);">opcional</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn primary" id="exportBtn">Exportar PNG (16:9)</button>
+    <button class="btn" id="saveBtn">Salvar escalação</button>
+    <button class="btn ghost" id="resetBtn">Limpar tudo</button>
+  </div>
+
+  <div class="pitch-wrap" id="pitchWrap">
+    <div class="pl pl-boundary"></div>
+    <div class="pl pl-halfline"></div>
+    <div class="pl pl-circle"></div>
+    <div class="pl pl-dot"></div>
+    <div class="pl pl-box pl-box-left"></div>
+    <div class="pl pl-box pl-box-left-small"></div>
+    <div class="pl pl-box pl-box-right"></div>
+    <div class="pl pl-box pl-box-right-small"></div>
+    <div class="header-tag">
+      <div class="hbadge" id="hbadgeShow"></div>
+      <div class="htext">
+        <div class="hname" id="hnameShow">Meu Time</div>
+        <div class="hform" id="hformShow">4-4-2</div>
+      </div>
+    </div>
+    <!-- tokens injected by JS -->
+  </div>
+
+  <div class="bench-section">
+    <h2>Banco de reservas</h2>
+    <div class="bench-strip" id="benchStrip"></div>
+  </div>
+
+  <div class="bench-section" id="savedSection" style="display:none;">
+    <h2>Escalações salvas</h2>
+    <div class="saved-row" id="savedRow"></div>
+  </div>
+
+  <p class="hint">Clique em um jogador (titular ou banco) para editar nome, número, posição e foto. Arraste os círculos no campo para ajustar a posição livremente, além da formação escolhida.</p>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Editar jogador</h3>
+    <div class="photo-picker">
+      <div class="prev" id="modalPhotoPrev">foto</div>
+      <div>
+        <button class="btn small" id="modalPhotoBtn">Enviar foto</button>
+        <input type="file" id="modalPhotoFile" accept="image/*">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Número</label>
+        <input type="text" id="modalNumber" maxlength="2">
+      </div>
+      <div class="field">
+        <label>Posição</label>
+        <input type="text" id="modalPos" maxlength="4">
+      </div>
+    </div>
+    <div class="field">
+      <label>Nome</label>
+      <input type="text" id="modalName" maxlength="22">
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost danger" id="modalRemovePhoto">Remover foto</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn ghost" id="modalCancel">Cancelar</button>
+        <button class="btn primary" id="modalSave">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<canvas id="exportCanvas" width="1280" height="720" style="display:none;"></canvas>
+
+<script>
+// Todas as formações são derivadas dos próprios números (ex: "4-2-3-1" = 4 linhas
+// de 4, 2, 3 e 1 jogador), evitando coordenadas fixas erradas ou digitadas à mão.
+const FORMATION_KEYS = [
+  "2-3-4-1","4-2-3-1","4-3-3","4-4-2","4-1-4-1","4-3-1-2","4-4-1-1","4-5-1",
+  "4-2-2-2","4-3-2-1","4-1-3-2","4-1-2-3","4-2-4","4-2-1-3",
+  "3-5-2","3-4-3","3-4-2-1","3-4-1-2","3-1-4-2","3-5-1-1","3-3-1-3","3-3-3-1","3-2-4-1",
+  "5-3-2","5-2-3","5-4-1"
+];
+
+function roleForLine(lineIndex, numLines, countInLine, posInLine){
+  if(lineIndex===0){
+    // linha de defesa: pontas viram laterais quando a linha tem 4+ jogadores
+    if(countInLine>=4 && (posInLine===0 || posInLine===countInLine-1)) return 'LAT';
+    return 'ZAG';
+  }
+  if(lineIndex===numLines-1) return 'ATA';           // linha mais adiantada
+  if(lineIndex===1) return 'VOL';                     // logo depois da defesa
+  return 'MEI';
+}
+
+function generateFormation(key){
+  const lines = key.split('-').map(Number);
+  const n = lines.length;
+  const positions = [{x:6,y:50,r:'GOL'}];
+  lines.forEach((count,i)=>{
+    const x = n>1 ? 18 + i*(64/(n-1)) : 50;
+    for(let p=0;p<count;p++){
+      const y = count>1 ? 12 + p*(76/(count-1)) : 50;
+      positions.push({x, y, r: roleForLine(i,n,count,p)});
+    }
+  });
+  return positions;
+}
+
+function blankPlayer(role){ return {number:"", name:"", pos:role||"", photo:null}; }
+function makeStarters(key){
+  return generateFormation(key).map(p=>({x:p.x,y:p.y,number:"",name:"",pos:p.r,photo:null}));
+}
+
+let state = {
+  teamName:"Meu Time",
+  teamColor:"#2f6fed",
+  badge:null,
+  formation:"4-4-2",
+  starters: makeStarters("4-4-2"),
+  bench: Array.from({length:5},()=>blankPlayer(""))
+};
+
+let editing = null; // {kind:'starter'|'bench', index}
+
+const pitchWrap = document.getElementById('pitchWrap');
+const benchStrip = document.getElementById('benchStrip');
+
+function resizeImageFile(file, size, cb){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const c = document.createElement('canvas');
+      c.width=size; c.height=size;
+      const ctx = c.getContext('2d');
+      const s = Math.min(img.width,img.height);
+      const sx=(img.width-s)/2, sy=(img.height-s)/2;
+      ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
+      cb(c.toDataURL('image/jpeg',0.85));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function render(){
+  document.getElementById('hnameShow').textContent = state.teamName || "Meu Time";
+  document.getElementById('hformShow').textContent = state.formation;
+  const hb = document.getElementById('hbadgeShow');
+  hb.innerHTML = state.badge ? `<img src="${state.badge}">` : "";
+
+  pitchWrap.querySelectorAll('.token').forEach(n=>n.remove());
+  state.starters.forEach((p,i)=>{
+    const t = document.createElement('div');
+    t.className='token';
+    t.style.left = p.x+'%';
+    t.style.top = p.y+'%';
+    t.innerHTML = `
+      <div class="circle" style="--kit:${state.teamColor}">
+        ${p.photo? `<img src="${p.photo}">` : `<span class="token-num">${p.number||''}</span>`}
+      </div>
+      <div class="tname">${p.name||'Jogador '+(i+1)}</div>
+      <div class="tpos">${p.pos}</div>
+    `;
+    attachDrag(t,i);
+    t.addEventListener('click', (ev)=>{ if(t.dataset.dragged==='1'){t.dataset.dragged='0';return;} openModal('starter',i); });
+    pitchWrap.appendChild(t);
+  });
+
+  benchStrip.innerHTML='';
+  state.bench.forEach((p,i)=>{
+    const c = document.createElement('div');
+    c.className='bench-card';
+    c.innerHTML = `
+      <div class="circle" style="--kit:${state.teamColor}">
+        ${p.photo? `<img src="${p.photo}">` : `<span class="num">${p.number||''}</span>`}
+      </div>
+      <div class="bname">${p.name||'Reserva '+(i+1)}</div>
+      <div class="bpos">${p.pos||''}</div>
+    `;
+    c.addEventListener('click', ()=>openModal('bench',i));
+    benchStrip.appendChild(c);
+  });
+  const addBtn = document.createElement('div');
+  addBtn.className='bench-add';
+  addBtn.textContent='+';
+  addBtn.title='Adicionar reserva';
+  addBtn.addEventListener('click', ()=>{
+    if(state.bench.length>=9) return;
+    state.bench.push(blankPlayer(""));
+    render();
+  });
+  benchStrip.appendChild(addBtn);
+}
+
+function attachDrag(el, index){
+  let dragging=false, moved=false;
+  el.addEventListener('pointerdown', e=>{
+    dragging=true; moved=false;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    moved=true;
+    const rect = pitchWrap.getBoundingClientRect();
+    let x = ((e.clientX-rect.left)/rect.width)*100;
+    let y = ((e.clientY-rect.top)/rect.height)*100;
+    x = Math.max(2,Math.min(98,x));
+    y = Math.max(4,Math.min(96,y));
+    state.starters[index].x=x;
+    state.starters[index].y=y;
+    el.style.left=x+'%';
+    el.style.top=y+'%';
+  });
+  el.addEventListener('pointerup', e=>{
+    dragging=false;
+    if(moved) el.dataset.dragged='1';
+  });
+}
+
+function openModal(kind, index){
+  editing = {kind, index};
+  const p = kind==='starter'? state.starters[index] : state.bench[index];
+  document.getElementById('modalTitle').textContent = kind==='starter' ? 'Editar titular' : 'Editar reserva';
+  document.getElementById('modalNumber').value = p.number||'';
+  document.getElementById('modalPos').value = p.pos||'';
+  document.getElementById('modalName').value = p.name||'';
+  const prev = document.getElementById('modalPhotoPrev');
+  prev.innerHTML = p.photo? `<img src="${p.photo}">` : 'foto';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  editing=null;
+}
+
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.target.id==='modalOverlay') closeModal(); });
+
+document.getElementById('modalSave').addEventListener('click', ()=>{
+  if(!editing) return;
+  const p = editing.kind==='starter'? state.starters[editing.index] : state.bench[editing.index];
+  p.number = document.getElementById('modalNumber').value.trim();
+  p.pos = document.getElementById('modalPos').value.trim().toUpperCase();
+  p.name = document.getElementById('modalName').value.trim();
+  const img = document.getElementById('modalPhotoPrev').querySelector('img');
+  p.photo = img ? img.src : null;
+  closeModal();
+  render();
+});
+
+document.getElementById('modalRemovePhoto').addEventListener('click', ()=>{
+  document.getElementById('modalPhotoPrev').innerHTML='foto';
+});
+document.getElementById('modalPhotoBtn').addEventListener('click', ()=>document.getElementById('modalPhotoFile').click());
+document.getElementById('modalPhotoFile').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  resizeImageFile(f, 160, dataUrl=>{
+    document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
+  });
+});
+
+document.getElementById('teamName').addEventListener('input', e=>{ state.teamName=e.target.value; render(); });
+document.getElementById('teamColor').addEventListener('input', e=>{ state.teamColor=e.target.value; render(); });
+document.getElementById('formationSelect').addEventListener('change', e=>{
+  const key = e.target.value;
+  const preset = generateFormation(key);
+  state.starters.forEach((p,i)=>{
+    p.x=preset[i].x; p.y=preset[i].y; p.pos=preset[i].r;
+  });
+  state.formation = key;
+  render();
+});
+document.getElementById('badgeUpload').addEventListener('click', ()=>document.getElementById('badgeFile').click());
+document.getElementById('badgeFile').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  resizeImageFile(f, 120, dataUrl=>{ state.badge=dataUrl; document.getElementById('badgeUpload').innerHTML=`<img src="${dataUrl}">`; render(); });
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(!confirm('Limpar toda a escalação atual?')) return;
+  state = {
+    teamName:"Meu Time", teamColor:"#2f6fed", badge:null,
+    formation:"4-4-2", starters: makeStarters("4-4-2"),
+    bench: Array.from({length:5},()=>blankPlayer(""))
+  };
+  document.getElementById('teamName').value = state.teamName;
+  document.getElementById('teamColor').value = state.teamColor;
+  document.getElementById('formationSelect').value = state.formation;
+  document.getElementById('badgeUpload').innerHTML='+';
+  render();
+});
+
+// ---------- Export PNG ----------
+function drawCircleImage(ctx,img,cx,cy,r){
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img,cx-r,cy-r,r*2,r*2);
+  ctx.restore();
+}
+function loadImg(src){
+  return new Promise(res=>{
+    if(!src){res(null);return;}
+    const img = new Image();
+    img.onload=()=>res(img);
+    img.onerror=()=>res(null);
+    img.src=src;
+  });
+}
+
+async function exportPNG(){
+  const cv = document.getElementById('exportCanvas');
+  const ctx = cv.getContext('2d');
+  const W=1280,H=720;
+  ctx.clearRect(0,0,W,H);
+
+  const benchH = 64;              // altura reservada para a faixa do banco
+  const fieldBottom = H - benchH; // o campo termina aqui, sem invadir o banco
+
+  // pitch stripes (só até o limite do campo, não embaixo do banco)
+  const stripes=12, stripeW=W/stripes;
+  for(let i=0;i<stripes;i++){
+    ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
+    ctx.fillRect(i*stripeW,0,stripeW,fieldBottom);
+  }
+  // lines
+  ctx.strokeStyle='rgba(255,255,255,.5)';
+  ctx.lineWidth=2;
+  const padX=W*0.012, padTop=H*0.075, padBot=benchH+10;
+  ctx.strokeRect(padX,padTop,W-padX*2,fieldBottom-padTop-(padBot-benchH));
+  const fieldBoxBottom = fieldBottom - (padBot-benchH);
+  ctx.beginPath();
+  ctx.moveTo(W/2,padTop); ctx.lineTo(W/2,fieldBoxBottom); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2,(padTop+fieldBoxBottom)/2,68,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2,(padTop+fieldBoxBottom)/2,3,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fill();
+  const boxH=(fieldBoxBottom-padTop)*0.46, boxY=padTop+(fieldBoxBottom-padTop-boxH)/2;
+  ctx.strokeRect(padX,boxY,W*0.10,boxH);
+  ctx.strokeRect(W-padX-W*0.10,boxY,W*0.10,boxH);
+
+  // header
+  const badgeImg = await loadImg(state.badge);
+  if(badgeImg){
+    ctx.save();
+    ctx.beginPath(); ctx.arc(46,42,20,0,Math.PI*2); ctx.closePath(); ctx.clip();
+    ctx.drawImage(badgeImg,26,22,40,40);
+    ctx.restore();
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(46,42,20,0,Math.PI*2); ctx.stroke();
+  }
+  ctx.fillStyle='#eef4ef';
+  ctx.font="600 22px 'Oswald', sans-serif";
+  ctx.textBaseline='alphabetic';
+  ctx.fillText(state.teamName||'Meu Time', badgeImg?78:28, 38);
+  ctx.font="12px 'Inter', sans-serif";
+  ctx.fillStyle='rgba(255,255,255,.75)';
+  ctx.fillText(state.formation, badgeImg?78:28, 55);
+
+  // players
+  const areaX0=padX, areaX1=W-padX, areaY0=padTop, areaY1=fieldBoxBottom;
+  const areaW=areaX1-areaX0, areaH=areaY1-areaY0;
+  for(const p of state.starters){
+    const cx = areaX0 + (p.x/100)*areaW;
+    const cy = areaY0 + (p.y/100)*areaH;
+    const r=26;
+    ctx.beginPath(); ctx.arc(cx,cy,r+2,0,Math.PI*2);
+    ctx.fillStyle=state.teamColor; ctx.fill();
+    const img = await loadImg(p.photo);
+    if(img){
+      drawCircleImage(ctx,img,cx,cy,r);
+    } else {
+      ctx.fillStyle='#fff';
+      ctx.font="600 20px 'Oswald', sans-serif";
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(p.number||'', cx, cy+1);
+    }
+    ctx.strokeStyle='#eef4ef'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+
+    ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#eef4ef';
+    ctx.font="600 12.5px 'Inter', sans-serif";
+    ctx.fillText(p.name||'', cx, cy+r+16);
+    ctx.fillStyle='rgba(255,255,255,.7)';
+    ctx.font="9.5px 'Inter', sans-serif";
+    ctx.fillText(p.pos||'', cx, cy+r+28);
+  }
+
+  // bench strip bar (fundo sólido, separado do gramado, sem sobrepor a linha de fundo)
+  const benchY = fieldBottom + benchH/2 + 4;
+  ctx.fillStyle='#10151a';
+  ctx.fillRect(0,fieldBottom,W,benchH);
+  ctx.textAlign='left'; ctx.font="10px 'Inter', sans-serif"; ctx.fillStyle='rgba(255,255,255,.6)';
+  ctx.fillText('BANCO', 14, fieldBottom+16);
+  let bx = 14;
+  ctx.textAlign='center';
+  for(const p of state.bench){
+    const r=15;
+    ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2);
+    ctx.fillStyle=state.teamColor; ctx.fill();
+    const img = await loadImg(p.photo);
+    if(img){ drawCircleImage(ctx,img,bx+r,benchY,r); }
+    else{
+      ctx.fillStyle='#fff'; ctx.font="600 11px 'Oswald', sans-serif"; ctx.textBaseline='middle';
+      ctx.fillText(p.number||'', bx+r, benchY+1);
+    }
+    ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#eef4ef'; ctx.font="9.5px 'Inter', sans-serif"; ctx.textBaseline='alphabetic';
+    ctx.fillText((p.name||'').split(' ')[0]||'', bx+r, benchY+26);
+    bx += 78;
+  }
+
+  cv.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url;
+    a.download = `escalacao-${(state.teamName||'time').toLowerCase().replace(/\\s+/g,'-')}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+document.getElementById('exportBtn').addEventListener('click', exportPNG);
+
+// ---------- Save / Load lineups ----------
+async function refreshSavedList(){
+  const section = document.getElementById('savedSection');
+  const row = document.getElementById('savedRow');
+  try{
+    const idx = await window.storage.get('lineups:index', false);
+    const list = idx ? JSON.parse(idx.value) : [];
+    if(list.length===0){ section.style.display='none'; return; }
+    section.style.display='block';
+    row.innerHTML='';
+    list.forEach(name=>{
+      const chip = document.createElement('div');
+      chip.className='saved-chip';
+      chip.innerHTML = `<span>${name}</span>`;
+      const loadBtn = document.createElement('button');
+      loadBtn.textContent='abrir';
+      loadBtn.style.fontSize='11px';
+      loadBtn.addEventListener('click', ()=>loadLineup(name));
+      const delBtn = document.createElement('button');
+      delBtn.textContent='×';
+      delBtn.addEventListener('click', (ev)=>{ev.stopPropagation();deleteLineup(name);});
+      chip.appendChild(loadBtn);
+      chip.appendChild(delBtn);
+      row.appendChild(chip);
+    });
+  }catch(err){ section.style.display='none'; }
+}
+async function saveLineup(){
+  const name = prompt('Nome para salvar esta escalação:', state.teamName||'Escalação');
+  if(!name) return;
+  try{
+    await window.storage.set('lineup:'+name, JSON.stringify(state), false);
+    let idx=[];
+    try{ const r = await window.storage.get('lineups:index', false); idx = r? JSON.parse(r.value):[]; }catch(e){}
+    if(!idx.includes(name)) idx.push(name);
+    await window.storage.set('lineups:index', JSON.stringify(idx), false);
+    refreshSavedList();
+  }catch(err){ alert('Não foi possível salvar agora.'); }
+}
+async function loadLineup(name){
+  try{
+    const r = await window.storage.get('lineup:'+name, false);
+    if(!r) return;
+    state = JSON.parse(r.value);
+    document.getElementById('teamName').value = state.teamName;
+    document.getElementById('teamColor').value = state.teamColor;
+    document.getElementById('formationSelect').value = state.formation;
+    document.getElementById('badgeUpload').innerHTML = state.badge? `<img src="${state.badge}">` : '+';
+    render();
+  }catch(err){ alert('Não foi possível abrir esta escalação.'); }
+}
+async function deleteLineup(name){
+  try{
+    await window.storage.delete('lineup:'+name, false);
+    let idx=[];
+    try{ const r = await window.storage.get('lineups:index', false); idx = r? JSON.parse(r.value):[]; }catch(e){}
+    idx = idx.filter(n=>n!==name);
+    await window.storage.set('lineups:index', JSON.stringify(idx), false);
+    refreshSavedList();
+  }catch(err){}
+}
+document.getElementById('saveBtn').addEventListener('click', saveLineup);
+
+render();
+document.getElementById('formationSelect').value = state.formation;
+refreshSavedList();
+
+</script>
+</body>
+</html>
