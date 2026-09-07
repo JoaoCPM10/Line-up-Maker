@@ -275,19 +275,6 @@
     background:transparent;
   }
 
-  .saved-row{
-    display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;
-  }
-  .saved-chip{
-    display:flex;align-items:center;gap:6px;
-    background:var(--panel-2);border:1px solid var(--line);
-    border-radius:20px;padding:5px 6px 5px 12px;font-size:12.5px;
-  }
-  .saved-chip button{
-    background:none;border:none;color:var(--muted);
-    cursor:pointer;font-size:14px;padding:2px 6px;
-  }
-
   .modal-overlay{
     position:fixed;inset:0;background:rgba(0,0,0,.55);
     display:none;align-items:center;justify-content:center;z-index:50;
@@ -431,6 +418,8 @@
     <button class="btn primary" id="exportBtn">Exportar PNG (16:9)</button>
     <button class="btn" id="exportIconsBtn">Exportar ícones (fundo transparente)</button>
     <button class="btn" id="saveBtn">Salvar escalação</button>
+    <button class="btn" id="loadBtn">Carregar escalação</button>
+    <input type="file" id="loadFile" accept="application/json,.json">
     <button class="btn ghost" id="resetBtn">Limpar tudo</button>
   </div>
 
@@ -456,11 +445,6 @@
   <div class="bench-section">
     <h2>Banco de reservas</h2>
     <div class="bench-strip" id="benchStrip"></div>
-  </div>
-
-  <div class="bench-section" id="savedSection" style="display:none;">
-    <h2>Escalações salvas</h2>
-    <div class="saved-row" id="savedRow"></div>
   </div>
 
   <p class="hint">Clique em um jogador (titular ou banco) para editar nome, número, posição e foto. Arraste os círculos no campo para ajustar a posição livremente, além da formação escolhida.</p>
@@ -1148,73 +1132,50 @@ async function exportIconsPNG(){
 document.getElementById('exportBtn').addEventListener('click', exportPNG);
 document.getElementById('exportIconsBtn').addEventListener('click', exportIconsPNG);
 
-// ---------- Save / Load lineups ----------
-async function refreshSavedList(){
-  const section = document.getElementById('savedSection');
-  const row = document.getElementById('savedRow');
-  try{
-    const idx = await window.storage.get('lineups:index', false);
-    const list = idx ? JSON.parse(idx.value) : [];
-    if(list.length===0){ section.style.display='none'; return; }
-    section.style.display='block';
-    row.innerHTML='';
-    list.forEach(name=>{
-      const chip = document.createElement('div');
-      chip.className='saved-chip';
-      chip.innerHTML = `<span>${name}</span>`;
-      const loadBtn = document.createElement('button');
-      loadBtn.textContent='abrir';
-      loadBtn.style.fontSize='11px';
-      loadBtn.addEventListener('click', ()=>loadLineup(name));
-      const delBtn = document.createElement('button');
-      delBtn.textContent='×';
-      delBtn.addEventListener('click', (ev)=>{ev.stopPropagation();deleteLineup(name);});
-      chip.appendChild(loadBtn);
-      chip.appendChild(delBtn);
-      row.appendChild(chip);
-    });
-  }catch(err){ section.style.display='none'; }
-}
-async function saveLineup(){
-  const name = prompt('Nome para salvar esta escalação:', state.teamName||'Escalação');
-  if(!name) return;
-  try{
-    await window.storage.set('lineup:'+name, JSON.stringify(state), false);
-    let idx=[];
-    try{ const r = await window.storage.get('lineups:index', false); idx = r? JSON.parse(r.value):[]; }catch(e){}
-    if(!idx.includes(name)) idx.push(name);
-    await window.storage.set('lineups:index', JSON.stringify(idx), false);
-    refreshSavedList();
-  }catch(err){ alert('Não foi possível salvar agora.'); }
-}
-async function loadLineup(name){
-  try{
-    const r = await window.storage.get('lineup:'+name, false);
-    if(!r) return;
-    state = JSON.parse(r.value);
-    document.getElementById('teamName').value = state.teamName;
-    document.getElementById('teamColor').value = state.teamColor;
-    document.getElementById('formationSelect').value = state.formation;
-    document.getElementById('orientationSelect').value = state.orientation || 'landscape';
-    document.getElementById('badgeUpload').innerHTML = state.badge? `<img src="${state.badge}">` : '+';
-    render();
-  }catch(err){ alert('Não foi possível abrir esta escalação.'); }
-}
-async function deleteLineup(name){
-  try{
-    await window.storage.delete('lineup:'+name, false);
-    let idx=[];
-    try{ const r = await window.storage.get('lineups:index', false); idx = r? JSON.parse(r.value):[]; }catch(e){}
-    idx = idx.filter(n=>n!==name);
-    await window.storage.set('lineups:index', JSON.stringify(idx), false);
-    refreshSavedList();
-  }catch(err){}
+// ---------- Save / Load lineups (arquivo .json local, sem servidor) ----------
+// "Salvar" baixa um arquivo .json com o estado inteiro; "Carregar" lê esse
+// arquivo de volta. Substitui o mecanismo antigo (window.storage), que não
+// existe em navegador nenhum e nunca funcionou fora de um ambiente especial.
+function saveLineup(){
+  const dataStr = JSON.stringify(state, null, 2);
+  const blob = new Blob([dataStr], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `escalacao-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 document.getElementById('saveBtn').addEventListener('click', saveLineup);
 
+document.getElementById('loadBtn').addEventListener('click', ()=>document.getElementById('loadFile').click());
+document.getElementById('loadFile').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  e.target.value = ''; // permite escolher o mesmo arquivo de novo depois
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    let loaded;
+    try{
+      loaded = JSON.parse(ev.target.result);
+      if(!loaded || !Array.isArray(loaded.starters)) throw new Error('formato inválido');
+    }catch(err){
+      alert('Não foi possível abrir esse arquivo. Confira se é um .json exportado por este app.');
+      return;
+    }
+    state = loaded;
+    document.getElementById('teamName').value = state.teamName||'';
+    document.getElementById('teamColor').value = state.teamColor||'#2f6fed';
+    document.getElementById('formationSelect').value = state.formation||'4-4-2';
+    document.getElementById('orientationSelect').value = state.orientation || 'landscape';
+    document.getElementById('badgeUpload').innerHTML = state.badge? `<img src="${state.badge}">` : '+';
+    render();
+  };
+  reader.readAsText(f);
+});
+
 render();
 document.getElementById('formationSelect').value = state.formation;
-refreshSavedList();
 
 </script>
 </body>
