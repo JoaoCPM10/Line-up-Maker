@@ -331,6 +331,20 @@
   .name-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
   .name-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .name-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* mesmo visual do dropdown de sugestão de jogador, mas flutuando por cima
+     do grid de controles (não pode empurrar os outros campos pra baixo) */
+  .team-suggestions{
+    position:absolute; top:100%; left:0; right:0; margin-top:6px;
+    border:1px solid var(--line); border-radius:8px;
+    overflow:hidden; background:var(--panel-2); z-index:20;
+  }
+  .team-suggestions .suggestion{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;}
+  .team-suggestions .suggestion:hover{background:var(--panel);}
+  .team-suggestions .suggestion+.suggestion{border-top:1px solid var(--line);}
+  .team-suggestions .suggestion img{width:28px;height:28px;object-fit:contain;flex-shrink:0;background:var(--panel);border-radius:4px;}
+  .team-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
+  .team-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .team-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
   input[type=file]{display:none;}
   .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
@@ -343,14 +357,15 @@
   <div class="top">
     <div>
       <h1>Gerador de escalação</h1>
-      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1280×720) para usar como overlay no vídeo.</p>
+      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1920×1080) para usar como overlay no vídeo.</p>
     </div>
   </div>
 
   <div class="controls">
-    <div class="field">
+    <div class="field" id="teamNameField" style="position:relative;">
       <label>Nome do time</label>
       <input type="text" id="teamName" placeholder="Ex: Flamengo" value="Meu Time">
+      <div class="team-suggestions" id="teamSuggestions" hidden></div>
     </div>
     <div class="field">
       <label>Cor da camisa</label>
@@ -414,6 +429,7 @@
 
   <div class="actions-row">
     <button class="btn primary" id="exportBtn">Exportar PNG (16:9)</button>
+    <button class="btn" id="exportIconsBtn">Exportar ícones (fundo transparente)</button>
     <button class="btn" id="saveBtn">Salvar escalação</button>
     <button class="btn ghost" id="resetBtn">Limpar tudo</button>
   </div>
@@ -547,7 +563,8 @@ let editing = null; // {kind:'starter'|'bench', index}
 const pitchWrap = document.getElementById('pitchWrap');
 const benchStrip = document.getElementById('benchStrip');
 
-function resizeImageFile(file, size, cb){
+function resizeImageFile(file, size, cb, format){
+  format = format || 'image/jpeg'; // escudo precisa de 'image/png' (fundo transparente); jpeg não tem alfa
   const reader = new FileReader();
   reader.onload = e=>{
     const img = new Image();
@@ -558,7 +575,7 @@ function resizeImageFile(file, size, cb){
       const s = Math.min(img.width,img.height);
       const sx=(img.width-s)/2, sy=(img.height-s)/2;
       ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
-      cb(c.toDataURL('image/jpeg',0.85));
+      cb(c.toDataURL(format,0.85));
     };
     img.src = e.target.result;
   };
@@ -609,7 +626,8 @@ async function searchPlayerPhoto(name){
 // ao upload manual (resizeImageFile) — necessário porque a exportação em PNG
 // desenha as fotos num canvas, e uma <img> cross-origin sem isso contamina o
 // canvas e quebra o toBlob() da exportação.
-function urlToDataUrl(url, size, cb){
+function urlToDataUrl(url, size, cb, format){
+  format = format || 'image/jpeg'; // escudo precisa de 'image/png' (fundo transparente); jpeg não tem alfa
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = ()=>{
@@ -620,7 +638,7 @@ function urlToDataUrl(url, size, cb){
     const sx = (img.width-s)/2, sy = (img.height-s)/2;
     ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
     try{
-      cb(c.toDataURL('image/jpeg',0.85));
+      cb(c.toDataURL(format, 0.85));
     }catch(err){
       // canvas contaminado: a imagem não liberou CORS, não dá pra usar
       cb(null);
@@ -628,6 +646,74 @@ function urlToDataUrl(url, size, cb){
   };
   img.onerror = ()=> cb(null);
   img.src = url;
+}
+
+// Busca de escudo por nome de time digitado: mesmo princípio da busca de
+// foto de jogador — TheSportsDB primeiro (devolve escudo, liga e país, úteis
+// pra diferenciar times com nome parecido em países diferentes), Wikipédia
+// como fallback. Nada aplica sozinho, é sempre sugestão clicável.
+async function searchTeamBadge(name){
+  name = name.trim();
+  if(name.length < 3) return [];
+
+  try{
+    const res = await fetch('https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=' + encodeURIComponent(name));
+    if(res.ok){
+      const data = await res.json();
+      const teams = (data && data.teams) || [];
+      const withBadge = teams.filter(t => t.strTeamBadge || t.strBadge);
+      if(withBadge.length){
+        return withBadge.slice(0,3).map(t => ({
+          label: t.strTeam,
+          sub: [t.strLeague, t.strCountry].filter(Boolean).join(' · '),
+          photo: t.strTeamBadge || t.strBadge
+        }));
+      }
+    }
+  }catch(err){ /* API instável ou sem internet: segue pro fallback */ }
+
+  try{
+    const title = name.replace(/\s+/g,'_');
+    const res = await fetch('https://pt.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.thumbnail && data.thumbnail.source){
+        return [{ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source }];
+      }
+    }
+  }catch(err){ /* sem artigo ou sem internet: sem sugestão */ }
+
+  return [];
+}
+
+function renderTeamSuggestions(candidates){
+  const box = document.getElementById('teamSuggestions');
+  if(!candidates.length){ box.hidden = true; box.innerHTML=''; return; }
+  box.innerHTML = candidates.map((c,i)=>`
+    <div class="suggestion" data-i="${i}">
+      <img src="${c.photo}">
+      <div class="suggestion-text">
+        <span class="suggestion-name">${c.label}</span>
+        <span class="suggestion-sub">${c.sub}</span>
+      </div>
+    </div>
+  `).join('');
+  box.hidden = false;
+  box.querySelectorAll('.suggestion').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const c = candidates[+el.dataset.i];
+      urlToDataUrl(c.photo, 160, dataUrl=>{
+        if(dataUrl){
+          state.teamName = c.label;
+          state.badge = dataUrl;
+          document.getElementById('teamName').value = c.label;
+          document.getElementById('badgeUpload').innerHTML = `<img src="${dataUrl}">`;
+          render();
+        }
+        box.hidden = true; box.innerHTML='';
+      }, 'image/png');
+    });
+  });
 }
 
 function renderNameSuggestions(candidates){
@@ -646,7 +732,7 @@ function renderNameSuggestions(candidates){
   box.querySelectorAll('.suggestion').forEach(el=>{
     el.addEventListener('click', ()=>{
       const c = candidates[+el.dataset.i];
-      urlToDataUrl(c.photo, 160, dataUrl=>{
+      urlToDataUrl(c.photo, 320, dataUrl=>{
         if(dataUrl) document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
         box.hidden = true; box.innerHTML='';
       });
@@ -783,7 +869,7 @@ document.getElementById('modalPhotoBtn').addEventListener('click', ()=>document.
 document.getElementById('modalPhotoFile').addEventListener('change', e=>{
   const f = e.target.files[0];
   if(!f) return;
-  resizeImageFile(f, 160, dataUrl=>{
+  resizeImageFile(f, 320, dataUrl=>{
     document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
   });
 });
@@ -800,7 +886,26 @@ document.getElementById('modalName').addEventListener('input', e=>{
   }, 500);
 });
 
-document.getElementById('teamName').addEventListener('input', e=>{ state.teamName=e.target.value; render(); });
+let teamSuggestTimer = null;
+document.getElementById('teamName').addEventListener('input', e=>{
+  state.teamName = e.target.value;
+  render();
+  clearTimeout(teamSuggestTimer);
+  const value = e.target.value;
+  const box = document.getElementById('teamSuggestions');
+  if(value.trim().length < 3){ box.hidden = true; box.innerHTML=''; return; }
+  teamSuggestTimer = setTimeout(async ()=>{
+    const candidates = await searchTeamBadge(value);
+    renderTeamSuggestions(candidates);
+  }, 500);
+});
+document.getElementById('teamName').addEventListener('blur', ()=>{
+  // pequeno atraso pra não fechar antes do clique numa sugestão registrar
+  setTimeout(()=>{
+    const box = document.getElementById('teamSuggestions');
+    box.hidden = true; box.innerHTML='';
+  }, 150);
+});
 document.getElementById('teamColor').addEventListener('input', e=>{ state.teamColor=e.target.value; render(); });
 document.getElementById('formationSelect').addEventListener('change', e=>{
   const key = e.target.value;
@@ -819,7 +924,7 @@ document.getElementById('badgeUpload').addEventListener('click', ()=>document.ge
 document.getElementById('badgeFile').addEventListener('change', e=>{
   const f = e.target.files[0];
   if(!f) return;
-  resizeImageFile(f, 120, dataUrl=>{ state.badge=dataUrl; document.getElementById('badgeUpload').innerHTML=`<img src="${dataUrl}">`; render(); });
+  resizeImageFile(f, 120, dataUrl=>{ state.badge=dataUrl; document.getElementById('badgeUpload').innerHTML=`<img src="${dataUrl}">`; render(); }, 'image/png');
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
@@ -857,44 +962,52 @@ function loadImg(src){
   });
 }
 
-async function exportPNG(){
-  const cv = document.getElementById('exportCanvas');
+// Desenha a escalação inteira no canvas. Com onlyIcons=true, pula o
+// gramado, as marcações do campo, o cabeçalho e o banco — só os círculos
+// dos titulares na posição da formação, com fundo transparente, pra colar
+// por cima de qualquer coisa no vídeo (não só do campo desenhado pelo app).
+async function renderLineupToCanvas(cv, onlyIcons){
   const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high'; // melhora a reamostragem de fotos e escudo ao desenhar em tamanho menor
   const portrait = state.orientation === 'portrait';
-  const W = portrait ? 1080 : 1280;
-  const H = portrait ? 1920 : 720;
+  const W = portrait ? 1080 : 1920;
+  const H = portrait ? 1920 : 1080;
   cv.width = W; cv.height = H;
-  ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0,0,W,H); // canvas começa transparente; sem desenhar nada por cima, continua transparente
 
-  // Fator de escala: no retrato a resolução é maior (1080x1920 em vez de
-  // 1280x720), então todo valor fixo em pixel (raio dos círculos, fontes,
-  // faixas de cabeçalho/banco) escala junto pra manter a mesma proporção
-  // visual que a versão paisagem já tem hoje.
-  const S = portrait ? 1080/720 : 1;
+  // Fator de escala sobre a referência original (1280x720): tanto paisagem
+  // (1920x1080) quanto retrato (1080x1920) são 1.5x essa referência, então
+  // todo valor fixo em pixel (raio dos círculos, fontes, faixas de
+  // cabeçalho/banco) escala igual nas duas orientações.
+  const S = 1.5;
   const headerH = 54*S;            // espaço reservado no topo pro nome/escudo/formação
   const benchH  = 64*S;            // espaço reservado embaixo pro banco
   const fieldBottom = H - benchH;  // o campo termina aqui, sem invadir o banco
 
   // pitch stripes (grama vai até o limite do campo, não embaixo do banco;
   // em pé, as listras giram 90° junto com o resto do campo)
-  const stripes=12;
-  if(portrait){
-    const stripeH = fieldBottom/stripes;
-    for(let i=0;i<stripes;i++){
-      ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
-      ctx.fillRect(0,i*stripeH,W,stripeH);
-    }
-  } else {
-    const stripeW = W/stripes;
-    for(let i=0;i<stripes;i++){
-      ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
-      ctx.fillRect(i*stripeW,0,stripeW,fieldBottom);
+  if(!onlyIcons){
+    const stripes=12;
+    if(portrait){
+      const stripeH = fieldBottom/stripes;
+      for(let i=0;i<stripes;i++){
+        ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
+        ctx.fillRect(0,i*stripeH,W,stripeH);
+      }
+    } else {
+      const stripeW = W/stripes;
+      for(let i=0;i<stripes;i++){
+        ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
+        ctx.fillRect(i*stripeW,0,stripeW,fieldBottom);
+      }
     }
   }
 
-  // Marcações do campo: no retrato, giram 90° (gols em cima/embaixo em vez
-  // de esquerda/direita). marginGoal fica pertinho de cada linha de gol,
-  // marginSide fica nas bordas que não encostam em cabeçalho nem banco.
+  // Área onde os jogadores ficam (mesmas margens sempre, com ou sem campo
+  // desenhado, pra manter a posição de cada jogador idêntica entre as duas
+  // exportações). No retrato, giram 90° (gols em cima/embaixo em vez de
+  // esquerda/direita).
   const marginGoal = 15*S, marginSide = 10*S;
   let X0,X1,Y0,Y1;
   if(portrait){
@@ -904,52 +1017,57 @@ async function exportPNG(){
     X0 = marginGoal; X1 = W - marginGoal;
     Y0 = headerH; Y1 = fieldBottom - marginSide;
   }
-  const goalA = portrait ? Y0 : X0, goalB = portrait ? Y1 : X1;
-  const widthA = portrait ? X0 : Y0, widthB = portrait ? X1 : Y1;
-  const widthMid = (widthA+widthB)/2;
-  const centerX = (X0+X1)/2, centerY = (Y0+Y1)/2;
 
-  ctx.strokeStyle='rgba(255,255,255,.5)';
-  ctx.lineWidth=2*S;
-  ctx.strokeRect(X0,Y0,X1-X0,Y1-Y0);
+  if(!onlyIcons){
+    const goalA = portrait ? Y0 : X0, goalB = portrait ? Y1 : X1;
+    const widthA = portrait ? X0 : Y0, widthB = portrait ? X1 : Y1;
+    const widthMid = (widthA+widthB)/2;
+    const centerX = (X0+X1)/2, centerY = (Y0+Y1)/2;
 
-  const goalMid = (goalA+goalB)/2;
-  ctx.beginPath();
-  if(portrait){ ctx.moveTo(widthA,goalMid); ctx.lineTo(widthB,goalMid); }
-  else{ ctx.moveTo(goalMid,widthA); ctx.lineTo(goalMid,widthB); }
-  ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.5)';
+    ctx.lineWidth=2*S;
+    ctx.strokeRect(X0,Y0,X1-X0,Y1-Y0);
 
-  ctx.beginPath(); ctx.arc(centerX,centerY,68*S,0,Math.PI*2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(centerX,centerY,3*S,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fill();
+    const goalMid = (goalA+goalB)/2;
+    ctx.beginPath();
+    if(portrait){ ctx.moveTo(widthA,goalMid); ctx.lineTo(widthB,goalMid); }
+    else{ ctx.moveTo(goalMid,widthA); ctx.lineTo(goalMid,widthB); }
+    ctx.stroke();
 
-  const boxDepth = (goalB-goalA)*0.10, boxSpan = (widthB-widthA)*0.46;
-  const boxW0 = widthMid-boxSpan/2, boxW1 = widthMid+boxSpan/2;
-  [[goalA, goalA+boxDepth], [goalB-boxDepth, goalB]].forEach(([g0,g1])=>{
-    if(portrait) ctx.strokeRect(boxW0,g0,boxW1-boxW0,g1-g0);
-    else ctx.strokeRect(g0,boxW0,g1-g0,boxW1-boxW0);
-  });
+    ctx.beginPath(); ctx.arc(centerX,centerY,68*S,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(centerX,centerY,3*S,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fill();
 
-  // header
-  const badgeImg = await loadImg(state.badge);
-  if(badgeImg){
-    ctx.save();
-    ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.closePath(); ctx.clip();
-    ctx.drawImage(badgeImg,26*S,22*S,40*S,40*S);
-    ctx.restore();
-    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2*S;
-    ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.stroke();
+    const boxDepth = (goalB-goalA)*0.10, boxSpan = (widthB-widthA)*0.46;
+    const boxW0 = widthMid-boxSpan/2, boxW1 = widthMid+boxSpan/2;
+    [[goalA, goalA+boxDepth], [goalB-boxDepth, goalB]].forEach(([g0,g1])=>{
+      if(portrait) ctx.strokeRect(boxW0,g0,boxW1-boxW0,g1-g0);
+      else ctx.strokeRect(g0,boxW0,g1-g0,boxW1-boxW0);
+    });
   }
-  ctx.fillStyle='#eef4ef';
-  ctx.font=`600 ${22*S}px 'Oswald', sans-serif`;
-  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-  ctx.fillText(state.teamName||'Meu Time', badgeImg?78*S:28*S, 38*S);
-  ctx.font=`${12*S}px 'Inter', sans-serif`;
-  ctx.fillStyle='rgba(255,255,255,.75)';
-  ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
+
+  if(!onlyIcons){
+    const badgeImg = await loadImg(state.badge);
+    if(badgeImg){
+      ctx.save();
+      ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.closePath(); ctx.clip();
+      ctx.drawImage(badgeImg,26*S,22*S,40*S,40*S);
+      ctx.restore();
+      ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2*S;
+      ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.fillStyle='#eef4ef';
+    ctx.font=`600 ${22*S}px 'Oswald', sans-serif`;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.fillText(state.teamName||'Meu Time', badgeImg?78*S:28*S, 38*S);
+    ctx.font=`${12*S}px 'Inter', sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,.75)';
+    ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
+  }
 
   // players — a posição já vem calculada como "distância do gol" (p.x) e
   // "espalhamento na linha" (p.y); no retrato os dois eixos só trocam de
   // lugar entre a tela X e Y, a lógica de generateFormation não muda nada.
+  // Desenhados sempre, com ou sem o resto do campo.
   for(const p of state.starters){
     const cx = portrait ? X0 + (p.y/100)*(X1-X0) : X0 + (p.x/100)*(X1-X0);
     const cy = portrait ? Y0 + (p.x/100)*(Y1-Y0) : Y0 + (p.y/100)*(Y1-Y0);
@@ -977,42 +1095,58 @@ async function exportPNG(){
     ctx.fillText(p.pos||'', cx, cy+r+28*S);
   }
 
-  // bench strip bar (fundo sólido, separado do gramado; sempre uma faixa
-  // horizontal embaixo, em qualquer orientação)
-  const benchY = fieldBottom + benchH/2 + 4*S;
-  ctx.fillStyle='#10151a';
-  ctx.fillRect(0,fieldBottom,W,benchH);
-  ctx.textAlign='left'; ctx.font=`${10*S}px 'Inter', sans-serif`; ctx.fillStyle='rgba(255,255,255,.6)';
-  ctx.fillText('BANCO', 14*S, fieldBottom+16*S);
-  let bx = 14*S;
-  ctx.textAlign='center';
-  for(const p of state.bench){
-    const r=15*S;
-    ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2);
-    ctx.fillStyle=state.teamColor; ctx.fill();
-    const img = await loadImg(p.photo);
-    if(img){ drawCircleImage(ctx,img,bx+r,benchY,r); }
-    else{
-      ctx.fillStyle='#fff'; ctx.font=`600 ${11*S}px 'Oswald', sans-serif`; ctx.textBaseline='middle';
-      ctx.fillText(p.number||'', bx+r, benchY+1);
+  if(!onlyIcons){
+    // bench strip bar (fundo sólido, separado do gramado; sempre uma faixa
+    // horizontal embaixo, em qualquer orientação)
+    const benchY = fieldBottom + benchH/2 + 4*S;
+    ctx.fillStyle='#10151a';
+    ctx.fillRect(0,fieldBottom,W,benchH);
+    ctx.textAlign='left'; ctx.font=`${10*S}px 'Inter', sans-serif`; ctx.fillStyle='rgba(255,255,255,.6)';
+    ctx.fillText('BANCO', 14*S, fieldBottom+16*S);
+    let bx = 14*S;
+    ctx.textAlign='center';
+    for(const p of state.bench){
+      const r=15*S;
+      ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2);
+      ctx.fillStyle=state.teamColor; ctx.fill();
+      const img = await loadImg(p.photo);
+      if(img){ drawCircleImage(ctx,img,bx+r,benchY,r); }
+      else{
+        ctx.fillStyle='#fff'; ctx.font=`600 ${11*S}px 'Oswald', sans-serif`; ctx.textBaseline='middle';
+        ctx.fillText(p.number||'', bx+r, benchY+1);
+      }
+      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5*S;
+      ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='#eef4ef'; ctx.font=`${9.5*S}px 'Inter', sans-serif`; ctx.textBaseline='alphabetic';
+      ctx.fillText((p.name||'').split(' ')[0]||'', bx+r, benchY+26*S);
+      bx += 78*S;
     }
-    ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5*S;
-    ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle='#eef4ef'; ctx.font=`${9.5*S}px 'Inter', sans-serif`; ctx.textBaseline='alphabetic';
-    ctx.fillText((p.name||'').split(' ')[0]||'', bx+r, benchY+26*S);
-    bx += 78*S;
   }
+}
 
+function downloadCanvas(cv, filename){
   cv.toBlob(blob=>{
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href=url;
-    a.download = `escalacao-${(state.teamName||'time').toLowerCase().replace(/\\s+/g,'-')}.png`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   });
 }
+
+async function exportPNG(){
+  const cv = document.getElementById('exportCanvas');
+  await renderLineupToCanvas(cv, false);
+  downloadCanvas(cv, `escalacao-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.png`);
+}
+async function exportIconsPNG(){
+  const cv = document.getElementById('exportCanvas');
+  await renderLineupToCanvas(cv, true);
+  downloadCanvas(cv, `escalacao-icones-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.png`);
+}
 document.getElementById('exportBtn').addEventListener('click', exportPNG);
+document.getElementById('exportIconsBtn').addEventListener('click', exportIconsPNG);
 
 // ---------- Save / Load lineups ----------
 async function refreshSavedList(){
