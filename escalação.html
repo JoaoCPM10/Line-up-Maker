@@ -21,6 +21,7 @@
   }
   *{box-sizing:border-box;}
   html,body{overflow-x:hidden;}
+  :root{ --kit-tint:#2f6fed; }
   body{
     margin:0;
     background:var(--ink);
@@ -28,6 +29,16 @@
     font-family:'Inter',system-ui,sans-serif;
     min-height:100vh;
     width:100%;
+    position:relative;
+  }
+  /* tingimento sutil do fundo com a cor da camisa escolhida; só cosmético
+     do app, nunca entra na imagem exportada (que desenha só o campo) */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background:radial-gradient(circle at 50% 0%, var(--kit-tint) 0%, transparent 60%);
+    opacity:.08;
+    pointer-events:none;
   }
   h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
   .app{
@@ -35,6 +46,8 @@
     width:100%;
     margin:0 auto;
     padding:28px 20px 60px;
+    position:relative;
+    z-index:1;
   }
   .top{
     display:flex;
@@ -175,6 +188,16 @@
   .pitch-wrap.portrait .pl-box-right{left:30%;right:auto;top:auto;bottom:1%;}
   .pitch-wrap.portrait .pl-box-left-small{left:38%;top:1%;width:24%;height:5%;}
   .pitch-wrap.portrait .pl-box-right-small{left:38%;right:auto;top:auto;bottom:1%;width:24%;height:5%;}
+  /* marca d'água do escudo: sem z-index de propósito, fica atrás das
+     marcações (.pl) e dos jogadores (.token) por vir antes deles no DOM */
+  .pitch-badge-watermark{
+    position:absolute; top:50%; left:50%;
+    width:48%; height:48%;
+    transform:translate(-50%,-50%);
+    object-fit:contain;
+    opacity:.1;
+    pointer-events:none;
+  }
   .header-tag{
     position:absolute;
     top:14px;left:16px;
@@ -424,6 +447,7 @@
   </div>
 
   <div class="pitch-wrap" id="pitchWrap">
+    <img class="pitch-badge-watermark" id="pitchBadgeWatermark" hidden>
     <div class="pl pl-boundary"></div>
     <div class="pl pl-halfline"></div>
     <div class="pl pl-circle"></div>
@@ -730,6 +754,12 @@ function render(){
   const hb = document.getElementById('hbadgeShow');
   hb.innerHTML = state.badge ? `<img src="${state.badge}">` : "";
 
+  document.documentElement.style.setProperty('--kit-tint', state.teamColor || '#2f6fed');
+
+  const watermark = document.getElementById('pitchBadgeWatermark');
+  if(state.badge){ watermark.src = state.badge; watermark.hidden = false; }
+  else { watermark.hidden = true; watermark.removeAttribute('src'); }
+
   const portraitMode = state.orientation === 'portrait';
   pitchWrap.classList.toggle('portrait', portraitMode);
   document.getElementById('exportBtn').textContent = portraitMode ? 'Exportar PNG (9:16)' : 'Exportar PNG (16:9)';
@@ -1002,6 +1032,23 @@ async function renderLineupToCanvas(cv, onlyIcons){
     Y0 = headerH; Y1 = fieldBottom - marginSide;
   }
 
+  // carregado uma única vez, reaproveitado na marca d'água e no cabeçalho
+  const badgeImg = onlyIcons ? null : await loadImg(state.badge);
+
+  // marca d'água do escudo: grande, bem apagada, atrás das marcações e dos
+  // jogadores (desenhada antes deles). Não entra no modo só-ícones, porque
+  // esse export precisa ficar limpo pra colar sobre qualquer coisa no vídeo.
+  if(!onlyIcons && badgeImg){
+    const wmCenterX = (X0+X1)/2, wmCenterY = (Y0+Y1)/2;
+    const wmBox = Math.min(X1-X0, Y1-Y0) * 0.5; // ~50% da menor dimensão da área do campo
+    const scale = Math.min(wmBox/badgeImg.width, wmBox/badgeImg.height);
+    const dw = badgeImg.width*scale, dh = badgeImg.height*scale;
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.drawImage(badgeImg, wmCenterX-dw/2, wmCenterY-dh/2, dw, dh);
+    ctx.restore();
+  }
+
   if(!onlyIcons){
     const goalA = portrait ? Y0 : X0, goalB = portrait ? Y1 : X1;
     const widthA = portrait ? X0 : Y0, widthB = portrait ? X1 : Y1;
@@ -1030,7 +1077,6 @@ async function renderLineupToCanvas(cv, onlyIcons){
   }
 
   if(!onlyIcons){
-    const badgeImg = await loadImg(state.badge);
     if(badgeImg){
       ctx.save();
       ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.closePath(); ctx.clip();
