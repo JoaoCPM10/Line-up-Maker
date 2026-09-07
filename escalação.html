@@ -852,6 +852,9 @@ function openModal(kind, index){
   const suggestions = document.getElementById('nameSuggestions');
   suggestions.hidden = true; suggestions.innerHTML='';
   document.getElementById('modalOverlay').classList.add('open');
+  const nameInput = document.getElementById('modalName');
+  nameInput.focus();
+  nameInput.select();
 }
 function closeModal(){
   clearTimeout(nameSuggestTimer);
