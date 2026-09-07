@@ -331,6 +331,20 @@
   .name-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
   .name-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .name-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* mesmo visual do dropdown de sugestão de jogador, mas flutuando por cima
+     do grid de controles (não pode empurrar os outros campos pra baixo) */
+  .team-suggestions{
+    position:absolute; top:100%; left:0; right:0; margin-top:6px;
+    border:1px solid var(--line); border-radius:8px;
+    overflow:hidden; background:var(--panel-2); z-index:20;
+  }
+  .team-suggestions .suggestion{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;}
+  .team-suggestions .suggestion:hover{background:var(--panel);}
+  .team-suggestions .suggestion+.suggestion{border-top:1px solid var(--line);}
+  .team-suggestions .suggestion img{width:28px;height:28px;object-fit:contain;flex-shrink:0;background:var(--panel);border-radius:4px;}
+  .team-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
+  .team-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .team-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
   input[type=file]{display:none;}
   .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
@@ -348,9 +362,10 @@
   </div>
 
   <div class="controls">
-    <div class="field">
+    <div class="field" id="teamNameField" style="position:relative;">
       <label>Nome do time</label>
       <input type="text" id="teamName" placeholder="Ex: Flamengo" value="Meu Time">
+      <div class="team-suggestions" id="teamSuggestions" hidden></div>
     </div>
     <div class="field">
       <label>Cor da camisa</label>
@@ -547,7 +562,8 @@ let editing = null; // {kind:'starter'|'bench', index}
 const pitchWrap = document.getElementById('pitchWrap');
 const benchStrip = document.getElementById('benchStrip');
 
-function resizeImageFile(file, size, cb){
+function resizeImageFile(file, size, cb, format){
+  format = format || 'image/jpeg'; // escudo precisa de 'image/png' (fundo transparente); jpeg não tem alfa
   const reader = new FileReader();
   reader.onload = e=>{
     const img = new Image();
@@ -558,7 +574,7 @@ function resizeImageFile(file, size, cb){
       const s = Math.min(img.width,img.height);
       const sx=(img.width-s)/2, sy=(img.height-s)/2;
       ctx.drawImage(img,sx,sy,s,s,0,0,size,size);
-      cb(c.toDataURL('image/jpeg',0.85));
+      cb(c.toDataURL(format,0.85));
     };
     img.src = e.target.result;
   };
@@ -609,7 +625,8 @@ async function searchPlayerPhoto(name){
 // ao upload manual (resizeImageFile) — necessário porque a exportação em PNG
 // desenha as fotos num canvas, e uma <img> cross-origin sem isso contamina o
 // canvas e quebra o toBlob() da exportação.
-function urlToDataUrl(url, size, cb){
+function urlToDataUrl(url, size, cb, format){
+  format = format || 'image/jpeg'; // escudo precisa de 'image/png' (fundo transparente); jpeg não tem alfa
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = ()=>{
@@ -620,7 +637,7 @@ function urlToDataUrl(url, size, cb){
     const sx = (img.width-s)/2, sy = (img.height-s)/2;
     ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
     try{
-      cb(c.toDataURL('image/jpeg',0.85));
+      cb(c.toDataURL(format, 0.85));
     }catch(err){
       // canvas contaminado: a imagem não liberou CORS, não dá pra usar
       cb(null);
@@ -628,6 +645,74 @@ function urlToDataUrl(url, size, cb){
   };
   img.onerror = ()=> cb(null);
   img.src = url;
+}
+
+// Busca de escudo por nome de time digitado: mesmo princípio da busca de
+// foto de jogador — TheSportsDB primeiro (devolve escudo, liga e país, úteis
+// pra diferenciar times com nome parecido em países diferentes), Wikipédia
+// como fallback. Nada aplica sozinho, é sempre sugestão clicável.
+async function searchTeamBadge(name){
+  name = name.trim();
+  if(name.length < 3) return [];
+
+  try{
+    const res = await fetch('https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=' + encodeURIComponent(name));
+    if(res.ok){
+      const data = await res.json();
+      const teams = (data && data.teams) || [];
+      const withBadge = teams.filter(t => t.strTeamBadge || t.strBadge);
+      if(withBadge.length){
+        return withBadge.slice(0,3).map(t => ({
+          label: t.strTeam,
+          sub: [t.strLeague, t.strCountry].filter(Boolean).join(' · '),
+          photo: t.strTeamBadge || t.strBadge
+        }));
+      }
+    }
+  }catch(err){ /* API instável ou sem internet: segue pro fallback */ }
+
+  try{
+    const title = name.replace(/\s+/g,'_');
+    const res = await fetch('https://pt.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.thumbnail && data.thumbnail.source){
+        return [{ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source }];
+      }
+    }
+  }catch(err){ /* sem artigo ou sem internet: sem sugestão */ }
+
+  return [];
+}
+
+function renderTeamSuggestions(candidates){
+  const box = document.getElementById('teamSuggestions');
+  if(!candidates.length){ box.hidden = true; box.innerHTML=''; return; }
+  box.innerHTML = candidates.map((c,i)=>`
+    <div class="suggestion" data-i="${i}">
+      <img src="${c.photo}">
+      <div class="suggestion-text">
+        <span class="suggestion-name">${c.label}</span>
+        <span class="suggestion-sub">${c.sub}</span>
+      </div>
+    </div>
+  `).join('');
+  box.hidden = false;
+  box.querySelectorAll('.suggestion').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const c = candidates[+el.dataset.i];
+      urlToDataUrl(c.photo, 160, dataUrl=>{
+        if(dataUrl){
+          state.teamName = c.label;
+          state.badge = dataUrl;
+          document.getElementById('teamName').value = c.label;
+          document.getElementById('badgeUpload').innerHTML = `<img src="${dataUrl}">`;
+          render();
+        }
+        box.hidden = true; box.innerHTML='';
+      }, 'image/png');
+    });
+  });
 }
 
 function renderNameSuggestions(candidates){
@@ -800,7 +885,26 @@ document.getElementById('modalName').addEventListener('input', e=>{
   }, 500);
 });
 
-document.getElementById('teamName').addEventListener('input', e=>{ state.teamName=e.target.value; render(); });
+let teamSuggestTimer = null;
+document.getElementById('teamName').addEventListener('input', e=>{
+  state.teamName = e.target.value;
+  render();
+  clearTimeout(teamSuggestTimer);
+  const value = e.target.value;
+  const box = document.getElementById('teamSuggestions');
+  if(value.trim().length < 3){ box.hidden = true; box.innerHTML=''; return; }
+  teamSuggestTimer = setTimeout(async ()=>{
+    const candidates = await searchTeamBadge(value);
+    renderTeamSuggestions(candidates);
+  }, 500);
+});
+document.getElementById('teamName').addEventListener('blur', ()=>{
+  // pequeno atraso pra não fechar antes do clique numa sugestão registrar
+  setTimeout(()=>{
+    const box = document.getElementById('teamSuggestions');
+    box.hidden = true; box.innerHTML='';
+  }, 150);
+});
 document.getElementById('teamColor').addEventListener('input', e=>{ state.teamColor=e.target.value; render(); });
 document.getElementById('formationSelect').addEventListener('change', e=>{
   const key = e.target.value;
@@ -819,7 +923,7 @@ document.getElementById('badgeUpload').addEventListener('click', ()=>document.ge
 document.getElementById('badgeFile').addEventListener('change', e=>{
   const f = e.target.files[0];
   if(!f) return;
-  resizeImageFile(f, 120, dataUrl=>{ state.badge=dataUrl; document.getElementById('badgeUpload').innerHTML=`<img src="${dataUrl}">`; render(); });
+  resizeImageFile(f, 120, dataUrl=>{ state.badge=dataUrl; document.getElementById('badgeUpload').innerHTML=`<img src="${dataUrl}">`; render(); }, 'image/png');
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
