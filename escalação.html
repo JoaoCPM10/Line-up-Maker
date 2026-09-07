@@ -357,7 +357,7 @@
   <div class="top">
     <div>
       <h1>Gerador de escalação</h1>
-      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1280×720) para usar como overlay no vídeo.</p>
+      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1920×1080) para usar como overlay no vídeo.</p>
     </div>
   </div>
 
@@ -731,7 +731,7 @@ function renderNameSuggestions(candidates){
   box.querySelectorAll('.suggestion').forEach(el=>{
     el.addEventListener('click', ()=>{
       const c = candidates[+el.dataset.i];
-      urlToDataUrl(c.photo, 160, dataUrl=>{
+      urlToDataUrl(c.photo, 320, dataUrl=>{
         if(dataUrl) document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
         box.hidden = true; box.innerHTML='';
       });
@@ -868,7 +868,7 @@ document.getElementById('modalPhotoBtn').addEventListener('click', ()=>document.
 document.getElementById('modalPhotoFile').addEventListener('change', e=>{
   const f = e.target.files[0];
   if(!f) return;
-  resizeImageFile(f, 160, dataUrl=>{
+  resizeImageFile(f, 320, dataUrl=>{
     document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
   });
 });
@@ -964,17 +964,19 @@ function loadImg(src){
 async function exportPNG(){
   const cv = document.getElementById('exportCanvas');
   const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high'; // melhora a reamostragem de fotos e escudo ao desenhar em tamanho menor
   const portrait = state.orientation === 'portrait';
-  const W = portrait ? 1080 : 1280;
-  const H = portrait ? 1920 : 720;
+  const W = portrait ? 1080 : 1920;
+  const H = portrait ? 1920 : 1080;
   cv.width = W; cv.height = H;
   ctx.clearRect(0,0,W,H);
 
-  // Fator de escala: no retrato a resolução é maior (1080x1920 em vez de
-  // 1280x720), então todo valor fixo em pixel (raio dos círculos, fontes,
-  // faixas de cabeçalho/banco) escala junto pra manter a mesma proporção
-  // visual que a versão paisagem já tem hoje.
-  const S = portrait ? 1080/720 : 1;
+  // Fator de escala sobre a referência original (1280x720): tanto paisagem
+  // (1920x1080) quanto retrato (1080x1920) são 1.5x essa referência, então
+  // todo valor fixo em pixel (raio dos círculos, fontes, faixas de
+  // cabeçalho/banco) escala igual nas duas orientações.
+  const S = 1.5;
   const headerH = 54*S;            // espaço reservado no topo pro nome/escudo/formação
   const benchH  = 64*S;            // espaço reservado embaixo pro banco
   const fieldBottom = H - benchH;  // o campo termina aqui, sem invadir o banco
