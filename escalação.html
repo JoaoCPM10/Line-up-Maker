@@ -668,6 +668,37 @@ function drawCircleImage(ctx,img,cx,cy,r){
   ctx.drawImage(img,cx-r,cy-r,r*2,r*2);
   ctx.restore();
 }
+// Contêiner de nome pra lista lateral: fundo neutro fixo (nunca a cor do
+// time inteira, pra nunca depender de calcular contraste) + faixa de
+// destaque na cor do time do lado esquerdo.
+function drawNamePill(ctx, x, y, w, h, name, color, fontSize, S){
+  const r = Math.min(8*S, h/2);
+  const path = ()=>{
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  };
+  path();
+  ctx.fillStyle = '#161d22';
+  ctx.fill();
+
+  const stripeW = 5*S;
+  ctx.save();
+  path();
+  ctx.clip();
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, stripeW, h);
+  ctx.restore();
+
+  ctx.fillStyle = '#eef4ef';
+  ctx.font = `600 ${fontSize}px 'Inter', sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(name, x+stripeW+8*S, y+h/2, w-stripeW-16*S);
+}
 function loadImg(src){
   return new Promise(res=>{
     if(!src){res(null);return;}
@@ -692,6 +723,12 @@ async function renderLineupToCanvas(cv, onlyIcons){
   cv.width = W; cv.height = H;
   ctx.clearRect(0,0,W,H); // canvas começa transparente; sem desenhar nada por cima, continua transparente
 
+  // Lista de nomes à esquerda: só no export completo em paisagem (não no
+  // retrato, que já é estreito, nem no só-ícones, que precisa ficar limpo).
+  // Quando ativa, o campo perde a faixa esquerda pra lista e cada jogador
+  // deixa de mostrar o nome embaixo do ícone (o nome já está na lista).
+  const showNameList = !onlyIcons && !portrait;
+
   // Fator de escala sobre a referência original (1280x720): tanto paisagem
   // (1920x1080) quanto retrato (1080x1920) são 1.5x essa referência, então
   // todo valor fixo em pixel (raio dos círculos, fontes, faixas de
@@ -701,8 +738,18 @@ async function renderLineupToCanvas(cv, onlyIcons){
   const benchH  = 64*S;            // espaço reservado embaixo pro banco
   const fieldBottom = H - benchH;  // o campo termina aqui, sem invadir o banco
 
-  // pitch stripes (grama vai até o limite do campo, não embaixo do banco;
-  // em pé, as listras giram 90° junto com o resto do campo)
+  const listW = showNameList ? Math.round(W*0.22) : 0; // faixa da lista de nomes, só quando ativa
+
+  // painel da lista: fundo neutro fixo atrás de toda a coluna esquerda
+  // (inclusive atrás do cabeçalho, que continua no mesmo lugar de sempre)
+  if(showNameList){
+    ctx.fillStyle = '#10151a';
+    ctx.fillRect(0,0,listW,fieldBottom);
+  }
+
+  // pitch stripes (grama vai até o limite do campo, não embaixo do banco,
+  // nem embaixo da lista de nomes quando ela existe; em pé, as listras
+  // giram 90° junto com o resto do campo)
   if(!onlyIcons){
     const stripes=12;
     if(portrait){
@@ -712,10 +759,10 @@ async function renderLineupToCanvas(cv, onlyIcons){
         ctx.fillRect(0,i*stripeH,W,stripeH);
       }
     } else {
-      const stripeW = W/stripes;
+      const stripeW = (W-listW)/stripes;
       for(let i=0;i<stripes;i++){
         ctx.fillStyle = i%2===0 ? '#1b4332' : '#204a3a';
-        ctx.fillRect(i*stripeW,0,stripeW,fieldBottom);
+        ctx.fillRect(listW+i*stripeW,0,stripeW,fieldBottom);
       }
     }
   }
@@ -723,14 +770,15 @@ async function renderLineupToCanvas(cv, onlyIcons){
   // Área onde os jogadores ficam (mesmas margens sempre, com ou sem campo
   // desenhado, pra manter a posição de cada jogador idêntica entre as duas
   // exportações). No retrato, giram 90° (gols em cima/embaixo em vez de
-  // esquerda/direita).
+  // esquerda/direita). Em paisagem com lista de nomes, o campo começa depois
+  // da coluna da lista.
   const marginGoal = 15*S, marginSide = 10*S;
   let X0,X1,Y0,Y1;
   if(portrait){
     Y0 = headerH + marginGoal; Y1 = fieldBottom - marginGoal;
     X0 = marginSide; X1 = W - marginSide;
   } else {
-    X0 = marginGoal; X1 = W - marginGoal;
+    X0 = listW + marginGoal; X1 = W - marginGoal;
     Y0 = headerH; Y1 = fieldBottom - marginSide;
   }
 
@@ -796,6 +844,36 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
   }
 
+  // lista de nomes (titulares depois banco), cada um num contêiner com
+  // fundo neutro fixo + faixa na cor do time — nunca pinta o contêiner
+  // inteiro com a cor do time, pra não depender de calcular contraste
+  if(showNameList){
+    const listX0 = 10*S, listX1 = listW - 10*S;
+    const groups = [
+      { label:'TITULARES', items: state.starters, fallback:'Jogador' },
+      { label:'BANCO', items: state.bench, fallback:'Reserva' }
+    ];
+    const totalNames = state.starters.length + state.bench.length;
+    const labelH = 16*S, gap = 4*S;
+    const availableH = (Y1 - Y0) - groups.filter(g=>g.items.length).length*labelH;
+    const rowH = Math.max(20*S, Math.min(34*S, (availableH - gap*totalNames) / totalNames));
+    const fontSize = Math.max(9*S, rowH*0.4);
+
+    let cy = Y0;
+    groups.forEach(g=>{
+      if(!g.items.length) return;
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      ctx.fillStyle='rgba(255,255,255,.55)';
+      ctx.font=`600 ${11*S}px 'Inter', sans-serif`;
+      ctx.fillText(g.label, listX0, cy + labelH*0.75);
+      cy += labelH;
+      g.items.forEach((p,i)=>{
+        drawNamePill(ctx, listX0, cy, listX1-listX0, rowH, p.name || (g.fallback+' '+(i+1)), state.teamColor, fontSize, S);
+        cy += rowH + gap;
+      });
+    });
+  }
+
   // players — a posição já vem calculada como "distância do gol" (p.x) e
   // "espalhamento na linha" (p.y); no retrato os dois eixos só trocam de
   // lugar entre a tela X e Y, a lógica de generateFormation não muda nada.
@@ -819,12 +897,18 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
 
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    ctx.fillStyle='#eef4ef';
-    ctx.font=`600 ${12.5*S}px 'Inter', sans-serif`;
-    ctx.fillText(p.name||'', cx, cy+r+16*S);
+    let labelY = cy+r+16*S;
+    if(!showNameList){
+      // nome só aparece embaixo do ícone quando NÃO tem lista lateral
+      // (a lista já mostra o nome nesse caso)
+      ctx.fillStyle='#eef4ef';
+      ctx.font=`600 ${12.5*S}px 'Inter', sans-serif`;
+      ctx.fillText(p.name||'', cx, labelY);
+      labelY += 12*S;
+    }
     ctx.fillStyle='rgba(255,255,255,.7)';
     ctx.font=`${9.5*S}px 'Inter', sans-serif`;
-    ctx.fillText(p.pos||'', cx, cy+r+28*S);
+    ctx.fillText(p.pos||'', cx, showNameList ? cy+r+16*S : labelY);
   }
 
   if(!onlyIcons){
