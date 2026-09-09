@@ -268,16 +268,27 @@ async function searchPlayerPhoto(name){
     }
   }catch(err){ /* API instável ou sem internet: segue pra próxima fonte */ }
 
+  // Busca de verdade na Wikipédia (não é mais "adivinha o título exato"):
+  // um nome sozinho (ex: "Julio") quase sempre cai numa página de
+  // desambiguação sem foto nenhuma, então a versão antiga não achava nada
+  // pra nomes assim. Esse endpoint devolve várias páginas que combinam com
+  // o texto digitado, cada uma já com sua miniatura — é por aqui que
+  // homônimos aparecem mesmo quando o TheSportsDB só tem um deles com foto.
   try{
-    const title = name.replace(/\s+/g,'_');
-    const res = await fetch('https://pt.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+    const res = await fetch('https://pt.wikipedia.org/w/rest.php/v1/search/page?q=' + encodeURIComponent(name) + '&limit=5');
     if(res.ok){
       const data = await res.json();
-      if(data && data.thumbnail && data.thumbnail.source){
-        candidates.push({ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source });
-      }
+      const pages = (data && data.pages) || [];
+      candidates.push(...pages.filter(pg => pg.thumbnail && pg.thumbnail.url).map(pg=>{
+        const url = pg.thumbnail.url;
+        return {
+          label: pg.title,
+          sub: pg.description || 'Wikipédia',
+          photo: url.startsWith('//') ? 'https:'+url : url
+        };
+      }));
     }
-  }catch(err){ /* sem artigo ou sem internet: sem sugestão dessa fonte */ }
+  }catch(err){ /* sem internet ou API fora do ar: segue só com o que já tem */ }
 
   // remove duplicata óbvia (mesmo nome já achado no TheSportsDB)
   const seen = new Set();
