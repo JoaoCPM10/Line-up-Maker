@@ -600,21 +600,24 @@ async function searchPlayerPhoto(name){
   name = name.trim();
   if(name.length < 3) return [];
 
+  // As duas fontes são combinadas (não é mais "TheSportsDB OU Wikipédia"),
+  // pra homônimos aparecerem mesmo quando cada fonte só tem uma das pessoas
+  // cadastrada com foto.
+  const candidates = [];
+
   try{
     const res = await fetch('https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=' + encodeURIComponent(name));
     if(res.ok){
       const data = await res.json();
       const players = (data && data.player) || [];
       const withPhoto = players.filter(pl => pl.strCutout || pl.strThumb || pl.strRender);
-      if(withPhoto.length){
-        return withPhoto.slice(0,3).map(pl => ({
-          label: pl.strPlayer,
-          sub: pl.strTeam || pl.strNationality || '',
-          photo: pl.strCutout || pl.strThumb || pl.strRender
-        }));
-      }
+      candidates.push(...withPhoto.slice(0,5).map(pl => ({
+        label: pl.strPlayer,
+        sub: pl.strTeam || pl.strNationality || '',
+        photo: pl.strCutout || pl.strThumb || pl.strRender
+      })));
     }
-  }catch(err){ /* API instável ou sem internet: segue pro fallback */ }
+  }catch(err){ /* API instável ou sem internet: segue pra próxima fonte */ }
 
   try{
     const title = name.replace(/\s+/g,'_');
@@ -622,12 +625,19 @@ async function searchPlayerPhoto(name){
     if(res.ok){
       const data = await res.json();
       if(data && data.thumbnail && data.thumbnail.source){
-        return [{ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source }];
+        candidates.push({ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source });
       }
     }
-  }catch(err){ /* sem artigo ou sem internet: sem sugestão */ }
+  }catch(err){ /* sem artigo ou sem internet: sem sugestão dessa fonte */ }
 
-  return [];
+  // remove duplicata óbvia (mesmo nome já achado no TheSportsDB)
+  const seen = new Set();
+  return candidates.filter(c=>{
+    const key = c.label.toLowerCase();
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0,5);
 }
 
 // Baixa a foto sugerida e converte para data: URL passando por canvas, igual
