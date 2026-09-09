@@ -279,7 +279,11 @@ async function searchPlayerPhoto(name){
   // o texto digitado, cada uma já com sua miniatura — é por aqui que
   // homônimos aparecem mesmo quando o TheSportsDB só tem um deles com foto.
   try{
-    const res = await fetch('https://pt.wikipedia.org/w/rest.php/v1/search/page?q=' + encodeURIComponent(name) + '&limit=5');
+    // busca bruta bem mais ampla que o número final de sugestões (5): nomes
+    // genéricos (ex: "João") têm rei, santo, cidade, etc. nos primeiros
+    // resultados por relevância, empurrando jogadores de futebol pra fora
+    // de um corte pequeno antes mesmo do filtro de futebol atuar
+    const res = await fetch('https://pt.wikipedia.org/w/rest.php/v1/search/page?q=' + encodeURIComponent(name) + '&limit=50');
     if(res.ok){
       const data = await res.json();
       const pages = (data && data.pages) || [];
