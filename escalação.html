@@ -259,7 +259,11 @@ async function searchPlayerPhoto(name){
     if(res.ok){
       const data = await res.json();
       const players = (data && data.player) || [];
-      const withPhoto = players.filter(pl => pl.strCutout || pl.strThumb || pl.strRender);
+      // TheSportsDB cobre vários esportes; sem isso, um "Julio" jogador de
+      // basquete apareceria aqui do mesmo jeito. Exige o campo confirmando
+      // futebol (não basta estar ausente/diferente).
+      const soccerOnly = players.filter(pl => (pl.strSport||'').toLowerCase()==='soccer');
+      const withPhoto = soccerOnly.filter(pl => pl.strCutout || pl.strThumb || pl.strRender);
       candidates.push(...withPhoto.slice(0,5).map(pl => ({
         label: pl.strPlayer,
         sub: pl.strTeam || pl.strNationality || '',
@@ -279,7 +283,12 @@ async function searchPlayerPhoto(name){
     if(res.ok){
       const data = await res.json();
       const pages = (data && data.pages) || [];
-      candidates.push(...pages.filter(pg => pg.thumbnail && pg.thumbnail.url).map(pg=>{
+      // Busca de texto livre traz qualquer página que combine (cantor, ator,
+      // etc. — foi o que aconteceu com "Julio Iglesias" num teste). Sem sinal
+      // nenhum de que é jogador na descrição, prefere não sugerir a arriscar
+      // sugerir a pessoa errada.
+      const soccerOnly = pages.filter(pg => /futeboli|futebol/i.test(pg.description||''));
+      candidates.push(...soccerOnly.filter(pg => pg.thumbnail && pg.thumbnail.url).map(pg=>{
         const url = pg.thumbnail.url;
         return {
           label: pg.title,
