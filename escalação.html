@@ -427,6 +427,7 @@ function render(){
   state.starters.forEach((p,i)=>{
     const t = document.createElement('div');
     t.className='token';
+    t.dataset.index = i;
     // eixo do gol (p.x) e eixo da largura do campo (p.y) trocam de lugar
     // entre left/top quando o campo está em pé (girado 90°)
     t.style.left = (portraitMode ? p.y : p.x)+'%';
@@ -447,6 +448,7 @@ function render(){
   state.bench.forEach((p,i)=>{
     const c = document.createElement('div');
     c.className='bench-card';
+    c.dataset.index = i;
     c.innerHTML = `
       <div class="circle" style="--kit:${state.teamColor}">
         ${p.photo? `<img src="${p.photo}">` : `<span class="num">${p.number||''}</span>`}
@@ -529,13 +531,26 @@ document.getElementById('modalOverlay').addEventListener('click', e=>{ if(e.targ
 document.getElementById('modalSave').addEventListener('click', ()=>{
   if(!editing) return;
   const p = editing.kind==='starter'? state.starters[editing.index] : state.bench[editing.index];
+  const photoBefore = p.photo;
   p.number = document.getElementById('modalNumber').value.trim();
   p.pos = document.getElementById('modalPos').value.trim().toUpperCase();
   p.name = document.getElementById('modalName').value.trim();
   const img = document.getElementById('modalPhotoPrev').querySelector('img');
   p.photo = img ? img.src : null;
+  const photoChanged = p.photo && p.photo !== photoBefore;
+  const { kind, index } = editing;
   closeModal();
   render();
+  // wipe radial só no ícone que de fato ganhou/trocou de foto agora — não é
+  // uma reação passiva a qualquer <img> nova, porque render() reconstrói
+  // todos os jogadores do zero a cada mudança (mesmo sem relação com foto)
+  if(photoChanged){
+    const selector = kind==='starter'
+      ? `.token[data-index="${index}"] .circle img`
+      : `.bench-card[data-index="${index}"] .circle img`;
+    const newImg = document.querySelector(selector);
+    if(newImg) newImg.classList.add('photo-wipe-in');
+  }
 });
 
 document.getElementById('modalRemovePhoto').addEventListener('click', ()=>{

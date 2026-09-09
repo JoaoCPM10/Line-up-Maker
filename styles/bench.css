@@ -36,4 +36,7 @@
   display:flex;align-items:center;justify-content:center;
   color:var(--muted);font-size:22px;cursor:pointer;
   background:transparent;
+  transition:filter .15s ease, border-color .15s ease, transform .1s ease;
 }
+.bench-add:hover{filter:brightness(1.2); border-color:#3a464e;}
+.bench-add:active{transform:translateY(1px) scale(.96); filter:brightness(.85);}
