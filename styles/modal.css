@@ -1,0 +1,62 @@
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  display:none;align-items:center;justify-content:center;z-index:50;
+  padding:16px;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:20px;
+  width:100%;max-width:340px;
+}
+.modal h3{margin:0 0 14px;font-size:15px;font-weight:600;}
+.modal .field{margin-bottom:10px;}
+.modal .row2{display:flex;gap:10px;}
+.modal .row2 .field{flex:1;}
+.photo-picker{
+  display:flex;align-items:center;gap:10px;margin-bottom:12px;
+}
+.photo-picker .prev{
+  width:52px;height:52px;border-radius:50%;
+  background:var(--panel-2);border:1px solid var(--line);
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:10px;flex-shrink:0;
+}
+.photo-picker .prev img{width:100%;height:100%;object-fit:cover;}
+.name-suggestions{
+  margin-top:6px;border:1px solid var(--line);border-radius:8px;
+  overflow:hidden;background:var(--panel-2);
+}
+.name-suggestions .suggestion{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;
+}
+.name-suggestions .suggestion:hover{background:var(--panel);}
+.name-suggestions .suggestion+.suggestion{border-top:1px solid var(--line);}
+.name-suggestions .suggestion img{
+  width:28px;height:28px;border-radius:50%;object-fit:cover;
+  flex-shrink:0;background:var(--panel);
+}
+.name-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
+.name-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.name-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* mesmo visual do dropdown de sugestão de jogador, mas flutuando por cima
+   do grid de controles (não pode empurrar os outros campos pra baixo) */
+.team-suggestions{
+  position:absolute; top:100%; left:0; right:0; margin-top:6px;
+  border:1px solid var(--line); border-radius:8px;
+  overflow:hidden; background:var(--panel-2); z-index:20;
+}
+.team-suggestions .suggestion{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;}
+.team-suggestions .suggestion:hover{background:var(--panel);}
+.team-suggestions .suggestion+.suggestion{border-top:1px solid var(--line);}
+.team-suggestions .suggestion img{width:28px;height:28px;object-fit:contain;flex-shrink:0;background:var(--panel);border-radius:4px;}
+.team-suggestions .suggestion-text{display:flex;flex-direction:column;overflow:hidden;}
+.team-suggestions .suggestion-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.team-suggestions .suggestion-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.modal-actions{display:flex;justify-content:space-between;margin-top:16px;gap:8px;}
+/* usado pelos três inputs de arquivo escondidos (foto de jogador, escudo,
+   carregar escalação) — todos abertos via clique num botão/elemento próprio */
+input[type=file]{display:none;}
+.hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.5;}

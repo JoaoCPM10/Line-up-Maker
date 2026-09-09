@@ -1,0 +1,116 @@
+.pitch-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  border-radius:var(--radius);
+  overflow:hidden;
+  border:1px solid var(--line);
+  background:
+    repeating-linear-gradient(90deg,var(--pitch-a) 0 8.333%,var(--pitch-b) 8.333% 16.666%);
+}
+.pitch-lines{position:absolute;inset:0;}
+.pl{
+  position:absolute;
+  border-color:rgba(255,255,255,.55);
+  pointer-events:none;
+  box-sizing:border-box;
+}
+.pl-boundary{left:1%;top:4%;width:98%;height:92%;border:2px solid;border-color:rgba(255,255,255,.55);}
+.pl-halfline{left:50%;top:4%;width:2px;height:92%;background:rgba(255,255,255,.55);transform:translateX(-1px);}
+/* círculos: largura e altura em % precisam manter a razão 16:9 do campo para não virar elipse */
+.pl-circle{left:50%;top:50%;width:12%;height:21.34%;transform:translate(-50%,-50%);border:2px solid;border-radius:50%;}
+.pl-dot{left:50%;top:50%;width:.8%;height:1.42%;transform:translate(-50%,-50%);background:rgba(255,255,255,.55);border-radius:50%;}
+.pl-box{top:30%;width:12%;height:40%;border:2px solid;}
+.pl-box-left{left:1%;}
+.pl-box-right{right:1%;}
+.pl-box-left-small{left:1%;top:38%;width:5%;height:24%;border:2px solid;}
+.pl-box-right-small{right:1%;top:38%;width:5%;height:24%;border:2px solid;}
+
+/* Campo em pé: mesmas marcações, giradas 90° (gols em cima/embaixo em vez
+   de esquerda/direita). Cada regra troca esquerda<->topo e largura<->altura
+   da versão paisagem correspondente, o que também mantém os círculos
+   redondos (a razão 12%/21.34% só se inverte porque a proporção do
+   container também inverteu, de 16:9 para 9:16). */
+.pitch-wrap.portrait{
+  aspect-ratio:9/16;
+  background:
+    repeating-linear-gradient(180deg,var(--pitch-a) 0 8.333%,var(--pitch-b) 8.333% 16.666%);
+}
+.pitch-wrap.portrait .pl-boundary{left:4%;top:1%;width:92%;height:98%;}
+.pitch-wrap.portrait .pl-halfline{left:4%;top:50%;width:92%;height:2px;transform:translateY(-1px);}
+.pitch-wrap.portrait .pl-circle{width:21.34%;height:12%;}
+.pitch-wrap.portrait .pl-dot{width:1.42%;height:.8%;}
+.pitch-wrap.portrait .pl-box{left:30%;top:auto;width:40%;height:12%;}
+.pitch-wrap.portrait .pl-box-left{left:30%;top:1%;}
+.pitch-wrap.portrait .pl-box-right{left:30%;right:auto;top:auto;bottom:1%;}
+.pitch-wrap.portrait .pl-box-left-small{left:38%;top:1%;width:24%;height:5%;}
+.pitch-wrap.portrait .pl-box-right-small{left:38%;right:auto;top:auto;bottom:1%;width:24%;height:5%;}
+/* marca d'água do escudo: sem z-index de propósito, fica atrás das
+   marcações (.pl) e dos jogadores (.token) por vir antes deles no DOM */
+.pitch-badge-watermark{
+  position:absolute; top:50%; left:50%;
+  width:48%; height:48%;
+  transform:translate(-50%,-50%);
+  object-fit:contain;
+  opacity:.1;
+  pointer-events:none;
+}
+.header-tag{
+  position:absolute;
+  top:14px;left:16px;
+  display:flex;align-items:center;gap:9px;
+  z-index:5;
+}
+.header-tag .hbadge{
+  width:34px;height:34px;border-radius:50%;
+  background:rgba(255,255,255,.12);
+  border:1.5px solid rgba(255,255,255,.55);
+  overflow:hidden;flex-shrink:0;
+}
+.header-tag .hbadge img{width:100%;height:100%;object-fit:cover;}
+.header-tag .htext .hname{
+  color:var(--chalk);
+  font-family:'Oswald',sans-serif;
+  font-size:16px;font-weight:600;letter-spacing:.3px;
+  text-shadow:0 1px 3px rgba(0,0,0,.5);
+}
+.header-tag .htext .hform{
+  color:rgba(255,255,255,.75);
+  font-size:11px;
+}
+.token{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  z-index:4;
+  width:76px;
+}
+.token:active{cursor:grabbing;}
+.token .circle{
+  width:68px;height:68px;border-radius:50%;
+  border:2.5px solid var(--chalk);
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  background:var(--kit,var(--accent));
+}
+.token .circle img{width:100%;height:100%;object-fit:cover;}
+.token .token-num{color:#fff;font-size:26px;font-weight:600;}
+.token .tname{
+  margin-top:3px;
+  color:var(--chalk);
+  font-size:10.5px;
+  font-weight:600;
+  text-align:center;
+  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  max-width:76px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.token .tpos{
+  color:rgba(255,255,255,.7);
+  font-size:8.5px;
+  letter-spacing:.4px;
+}
