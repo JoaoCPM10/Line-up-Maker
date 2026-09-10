@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Gerador de Escalação</title>
+<title>Lineup Maker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles/base.css">
@@ -15,28 +15,28 @@
 
   <div class="top">
     <div>
-      <h1>Gerador de escalação</h1>
-      <p>Monte o time, arraste os jogadores no campo e exporte em PNG (1920×1080) para usar como overlay no vídeo.</p>
+      <h1>Lineup Maker</h1>
+      <p>Build your team, drag the players on the pitch, and export as PNG (1920×1080) to use as a video overlay.</p>
     </div>
   </div>
 
   <div class="controls">
     <div class="field" id="teamNameField" style="position:relative;">
-      <label>Nome do time</label>
-      <input type="text" id="teamName" placeholder="Ex: Flamengo" value="Meu Time">
+      <label>Team name</label>
+      <input type="text" id="teamName" placeholder="E.g.: Liverpool" value="My Team">
       <div class="team-suggestions" id="teamSuggestions" hidden></div>
     </div>
     <div class="field">
-      <label>Cor da camisa</label>
+      <label>Jersey color</label>
       <input type="color" id="teamColor" value="#2f6fed">
     </div>
     <div class="field">
-      <label>Formação</label>
+      <label>Formation</label>
       <select id="formationSelect">
-        <optgroup label="Linha de 2 zagueiros">
+        <optgroup label="Back two">
           <option value="2-3-4-1">2-3-4-1</option>
         </optgroup>
-        <optgroup label="Linha de 4 zagueiros">
+        <optgroup label="Back four">
           <option value="4-4-2">4-4-2</option>
           <option value="4-3-3">4-3-3</option>
           <option value="4-2-3-1">4-2-3-1</option>
@@ -51,7 +51,7 @@
           <option value="4-2-4">4-2-4</option>
           <option value="4-2-1-3">4-2-1-3</option>
         </optgroup>
-        <optgroup label="Linha de 3 zagueiros">
+        <optgroup label="Back three">
           <option value="3-5-2">3-5-2</option>
           <option value="3-4-3">3-4-3</option>
           <option value="3-4-2-1">3-4-2-1</option>
@@ -62,7 +62,7 @@
           <option value="3-3-3-1">3-3-3-1</option>
           <option value="3-2-4-1">3-2-4-1</option>
         </optgroup>
-        <optgroup label="Linha de 5 zagueiros">
+        <optgroup label="Back five">
           <option value="5-3-2">5-3-2</option>
           <option value="5-2-3">5-2-3</option>
           <option value="5-4-1">5-4-1</option>
@@ -70,29 +70,29 @@
       </select>
     </div>
     <div class="field">
-      <label>Orientação</label>
+      <label>Orientation</label>
       <select id="orientationSelect">
-        <option value="landscape">Paisagem (16:9)</option>
-        <option value="portrait">Retrato (9:16)</option>
+        <option value="landscape">Landscape (16:9)</option>
+        <option value="portrait">Portrait (9:16)</option>
       </select>
     </div>
     <div class="field">
-      <label>Escudo do time</label>
+      <label>Team badge</label>
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="badge-upload" id="badgeUpload">+</div>
         <input type="file" id="badgeFile" accept="image/*">
-        <span style="font-size:11.5px;color:var(--muted);">opcional</span>
+        <span style="font-size:11.5px;color:var(--muted);">optional</span>
       </div>
     </div>
   </div>
 
   <div class="actions-row">
-    <button class="btn primary" id="exportBtn">Exportar PNG (16:9)</button>
-    <button class="btn" id="exportIconsBtn">Exportar ícones (fundo transparente)</button>
-    <button class="btn" id="saveBtn">Salvar escalação</button>
-    <button class="btn" id="loadBtn">Carregar escalação</button>
+    <button class="btn primary" id="exportBtn">Export PNG (16:9)</button>
+    <button class="btn" id="exportIconsBtn">Export icons (transparent background)</button>
+    <button class="btn" id="saveBtn">Save lineup</button>
+    <button class="btn" id="loadBtn">Load lineup</button>
     <input type="file" id="loadFile" accept="application/json,.json">
-    <button class="btn ghost" id="resetBtn">Limpar tudo</button>
+    <button class="btn ghost" id="resetBtn">Clear all</button>
   </div>
 
   <div class="pitch-wrap" id="pitchWrap">
@@ -108,7 +108,7 @@
     <div class="header-tag">
       <div class="hbadge" id="hbadgeShow"></div>
       <div class="htext">
-        <div class="hname" id="hnameShow">Meu Time</div>
+        <div class="hname" id="hnameShow">My Team</div>
         <div class="hform" id="hformShow">4-4-2</div>
       </div>
     </div>
@@ -116,43 +116,43 @@
   </div>
 
   <div class="bench-section">
-    <h2>Banco de reservas</h2>
+    <h2>Substitutes</h2>
     <div class="bench-strip" id="benchStrip"></div>
   </div>
 
-  <p class="hint">Clique em um jogador (titular ou banco) para editar nome, número, posição e foto. Arraste os círculos no campo para ajustar a posição livremente, além da formação escolhida.</p>
+  <p class="hint">Click a player (starter or substitute) to edit name, number, position and photo. Drag the circles on the pitch to freely adjust their position, beyond the chosen formation.</p>
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <h3 id="modalTitle">Editar jogador</h3>
+    <h3 id="modalTitle">Edit player</h3>
     <div class="photo-picker">
-      <div class="prev" id="modalPhotoPrev">foto</div>
+      <div class="prev" id="modalPhotoPrev">photo</div>
       <div>
-        <button class="btn small" id="modalPhotoBtn">Enviar foto</button>
+        <button class="btn small" id="modalPhotoBtn">Upload photo</button>
         <input type="file" id="modalPhotoFile" accept="image/*">
       </div>
     </div>
     <div class="row2">
       <div class="field">
-        <label>Número</label>
+        <label>Number</label>
         <input type="text" id="modalNumber" maxlength="2">
       </div>
       <div class="field">
-        <label>Posição</label>
+        <label>Position</label>
         <input type="text" id="modalPos" maxlength="4">
       </div>
     </div>
     <div class="field">
-      <label>Nome</label>
+      <label>Name</label>
       <input type="text" id="modalName" maxlength="22">
       <div class="name-suggestions" id="nameSuggestions" hidden></div>
     </div>
     <div class="modal-actions">
-      <button class="btn ghost danger" id="modalRemovePhoto">Remover foto</button>
+      <button class="btn ghost danger" id="modalRemovePhoto">Remove photo</button>
       <div style="display:flex;gap:8px;">
-        <button class="btn ghost" id="modalCancel">Cancelar</button>
-        <button class="btn primary" id="modalSave">Salvar</button>
+        <button class="btn ghost" id="modalCancel">Cancel</button>
+        <button class="btn primary" id="modalSave">Save</button>
       </div>
     </div>
   </div>
@@ -173,18 +173,18 @@ const FORMATION_KEYS = [
 function roleForLine(lineIndex, numLines, countInLine, posInLine){
   if(lineIndex===0){
     // linha de defesa: pontas viram laterais quando a linha tem 4+ jogadores
-    if(countInLine>=4 && (posInLine===0 || posInLine===countInLine-1)) return 'LAT';
-    return 'ZAG';
+    if(countInLine>=4 && (posInLine===0 || posInLine===countInLine-1)) return 'FB';
+    return 'CB';
   }
-  if(lineIndex===numLines-1) return 'ATA';           // linha mais adiantada
-  if(lineIndex===1) return 'VOL';                     // logo depois da defesa
-  return 'MEI';
+  if(lineIndex===numLines-1) return 'FW';           // linha mais adiantada
+  if(lineIndex===1) return 'DM';                     // logo depois da defesa
+  return 'MF';
 }
 
 function generateFormation(key){
   const lines = key.split('-').map(Number);
   const n = lines.length;
-  const positions = [{x:6,y:50,r:'GOL'}];
+  const positions = [{x:6,y:50,r:'GK'}];
   const MAX_SPAN = 76;   // span usado antes para linhas cheias (mantém o comportamento nelas)
   const STEP = 24;       // distância ideal entre jogadores vizinhos de uma linha
   lines.forEach((count,i)=>{
@@ -206,7 +206,7 @@ function makeStarters(key){
 }
 
 let state = {
-  teamName:"Meu Time",
+  teamName:"My Team",
   teamColor:"#2f6fed",
   badge:null,
   formation:"4-4-2",
@@ -283,7 +283,7 @@ async function searchPlayerPhoto(name){
     // genéricos (ex: "João") têm rei, santo, cidade, etc. nos primeiros
     // resultados por relevância, empurrando jogadores de futebol pra fora
     // de um corte pequeno antes mesmo do filtro de futebol atuar
-    const res = await fetch('https://pt.wikipedia.org/w/rest.php/v1/search/page?q=' + encodeURIComponent(name) + '&limit=50');
+    const res = await fetch('https://en.wikipedia.org/w/rest.php/v1/search/page?q=' + encodeURIComponent(name) + '&limit=50');
     if(res.ok){
       const data = await res.json();
       const pages = (data && data.pages) || [];
@@ -291,12 +291,12 @@ async function searchPlayerPhoto(name){
       // etc. — foi o que aconteceu com "Julio Iglesias" num teste). Sem sinal
       // nenhum de que é jogador na descrição, prefere não sugerir a arriscar
       // sugerir a pessoa errada.
-      const soccerOnly = pages.filter(pg => /futeboli|futebol/i.test(pg.description||''));
+      const soccerOnly = pages.filter(pg => /footballer|football player|soccer player/i.test(pg.description||''));
       candidates.push(...soccerOnly.filter(pg => pg.thumbnail && pg.thumbnail.url).map(pg=>{
         const url = pg.thumbnail.url;
         return {
           label: pg.title,
-          sub: pg.description || 'Wikipédia',
+          sub: pg.description || 'Wikipedia',
           photo: url.startsWith('//') ? 'https:'+url : url
         };
       }));
@@ -365,11 +365,11 @@ async function searchTeamBadge(name){
 
   try{
     const title = name.replace(/\s+/g,'_');
-    const res = await fetch('https://pt.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+    const res = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
     if(res.ok){
       const data = await res.json();
       if(data && data.thumbnail && data.thumbnail.source){
-        return [{ label: data.title, sub: 'Wikipédia', photo: data.thumbnail.source }];
+        return [{ label: data.title, sub: 'Wikipedia', photo: data.thumbnail.source }];
       }
     }
   }catch(err){ /* sem artigo ou sem internet: sem sugestão */ }
@@ -433,7 +433,7 @@ function renderNameSuggestions(candidates){
 }
 
 function render(){
-  document.getElementById('hnameShow').textContent = state.teamName || "Meu Time";
+  document.getElementById('hnameShow').textContent = state.teamName || "My Team";
   document.getElementById('hformShow').textContent = state.formation;
   const hb = document.getElementById('hbadgeShow');
   hb.innerHTML = state.badge ? `<img src="${state.badge}">` : "";
@@ -446,7 +446,7 @@ function render(){
 
   const portraitMode = state.orientation === 'portrait';
   pitchWrap.classList.toggle('portrait', portraitMode);
-  document.getElementById('exportBtn').textContent = portraitMode ? 'Exportar PNG (9:16)' : 'Exportar PNG (16:9)';
+  document.getElementById('exportBtn').textContent = portraitMode ? 'Export PNG (9:16)' : 'Export PNG (16:9)';
 
   pitchWrap.querySelectorAll('.token').forEach(n=>n.remove());
   state.starters.forEach((p,i)=>{
@@ -461,7 +461,7 @@ function render(){
       <div class="circle" style="--kit:${state.teamColor}">
         ${p.photo? `<img src="${p.photo}">` : `<span class="token-num">${p.number||''}</span>`}
       </div>
-      <div class="tname">${p.name||'Jogador '+(i+1)}</div>
+      <div class="tname">${p.name||'Player '+(i+1)}</div>
       <div class="tpos">${p.pos}</div>
     `;
     attachDrag(t,i);
@@ -478,7 +478,7 @@ function render(){
       <div class="circle" style="--kit:${state.teamColor}">
         ${p.photo? `<img src="${p.photo}">` : `<span class="num">${p.number||''}</span>`}
       </div>
-      <div class="bname">${p.name||'Reserva '+(i+1)}</div>
+      <div class="bname">${p.name||'Sub '+(i+1)}</div>
       <div class="bpos">${p.pos||''}</div>
     `;
     c.addEventListener('click', ()=>openModal('bench',i));
@@ -487,7 +487,7 @@ function render(){
   const addBtn = document.createElement('div');
   addBtn.className='bench-add';
   addBtn.textContent='+';
-  addBtn.title='Adicionar reserva';
+  addBtn.title='Add substitute';
   addBtn.addEventListener('click', ()=>{
     if(state.bench.length>=9) return;
     state.bench.push(blankPlayer(""));
@@ -528,7 +528,7 @@ function attachDrag(el, index){
 function openModal(kind, index){
   editing = {kind, index};
   const p = kind==='starter'? state.starters[index] : state.bench[index];
-  document.getElementById('modalTitle').textContent = kind==='starter' ? 'Editar titular' : 'Editar reserva';
+  document.getElementById('modalTitle').textContent = kind==='starter' ? 'Edit starter' : 'Edit substitute';
   document.getElementById('modalNumber').value = p.number||'';
   document.getElementById('modalPos').value = p.pos||'';
   document.getElementById('modalName').value = p.name||'';
@@ -644,9 +644,9 @@ document.getElementById('badgeFile').addEventListener('change', e=>{
 });
 
 document.getElementById('resetBtn').addEventListener('click', ()=>{
-  if(!confirm('Limpar toda a escalação atual?')) return;
+  if(!confirm('Clear the entire current lineup?')) return;
   state = {
-    teamName:"Meu Time", teamColor:"#2f6fed", badge:null,
+    teamName:"My Team", teamColor:"#2f6fed", badge:null,
     formation:"4-4-2", orientation:"landscape", starters: makeStarters("4-4-2"),
     bench: Array.from({length:5},()=>blankPlayer(""))
   };
@@ -838,7 +838,7 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.fillStyle='#eef4ef';
     ctx.font=`600 ${22*S}px 'Oswald', sans-serif`;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillText(state.teamName||'Meu Time', badgeImg?78*S:28*S, 38*S);
+    ctx.fillText(state.teamName||'My Team', badgeImg?78*S:28*S, 38*S);
     ctx.font=`${12*S}px 'Inter', sans-serif`;
     ctx.fillStyle='rgba(255,255,255,.75)';
     ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
@@ -850,8 +850,8 @@ async function renderLineupToCanvas(cv, onlyIcons){
   if(showNameList){
     const listX0 = 10*S, listX1 = listW - 10*S;
     const groups = [
-      { label:'TITULARES', items: state.starters, fallback:'Jogador' },
-      { label:'BANCO', items: state.bench, fallback:'Reserva' }
+      { label:'STARTERS', items: state.starters, fallback:'Player' },
+      { label:'BENCH', items: state.bench, fallback:'Sub' }
     ];
     const totalNames = state.starters.length + state.bench.length;
     const labelH = 16*S, gap = 4*S;
@@ -921,7 +921,7 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.fillStyle='#10151a';
     ctx.fillRect(0,fieldBottom,W,benchH);
     ctx.textAlign='left'; ctx.font=`${10*S}px 'Inter', sans-serif`; ctx.fillStyle='rgba(255,255,255,.6)';
-    ctx.fillText('BANCO', 14*S, fieldBottom+16*S);
+    ctx.fillText('BENCH', 14*S, fieldBottom+16*S);
     let bx = 14*S;
     ctx.textAlign='center';
     for(const p of state.bench){
@@ -957,12 +957,12 @@ function downloadCanvas(cv, filename){
 async function exportPNG(){
   const cv = document.getElementById('exportCanvas');
   await renderLineupToCanvas(cv, false);
-  downloadCanvas(cv, `escalacao-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.png`);
+  downloadCanvas(cv, `lineup-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.png`);
 }
 async function exportIconsPNG(){
   const cv = document.getElementById('exportCanvas');
   await renderLineupToCanvas(cv, true);
-  downloadCanvas(cv, `escalacao-icones-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.png`);
+  downloadCanvas(cv, `lineup-icons-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.png`);
 }
 document.getElementById('exportBtn').addEventListener('click', exportPNG);
 document.getElementById('exportIconsBtn').addEventListener('click', exportIconsPNG);
@@ -977,7 +977,7 @@ function saveLineup(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `escalacao-${(state.teamName||'time').toLowerCase().replace(/\s+/g,'-')}.json`;
+  a.download = `lineup-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -993,9 +993,9 @@ document.getElementById('loadFile').addEventListener('change', e=>{
     let loaded;
     try{
       loaded = JSON.parse(ev.target.result);
-      if(!loaded || !Array.isArray(loaded.starters)) throw new Error('formato inválido');
+      if(!loaded || !Array.isArray(loaded.starters)) throw new Error('invalid format');
     }catch(err){
-      alert('Não foi possível abrir esse arquivo. Confira se é um .json exportado por este app.');
+      alert('Could not open this file. Make sure it\'s a .json exported by this app.');
       return;
     }
     state = loaded;
