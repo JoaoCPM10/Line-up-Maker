@@ -680,37 +680,6 @@ function drawCircleImage(ctx,img,cx,cy,r){
   ctx.drawImage(img,cx-r,cy-r,r*2,r*2);
   ctx.restore();
 }
-// Contêiner de nome pra lista lateral: fundo neutro fixo (nunca a cor do
-// time inteira, pra nunca depender de calcular contraste) + faixa de
-// destaque na cor do time do lado esquerdo.
-function drawNamePill(ctx, x, y, w, h, name, color, fontSize, S){
-  const r = Math.min(8*S, h/2);
-  const path = ()=>{
-    ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r);
-    ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r);
-    ctx.arcTo(x,y,x+w,y,r);
-    ctx.closePath();
-  };
-  path();
-  ctx.fillStyle = '#161d22';
-  ctx.fill();
-
-  const stripeW = 5*S;
-  ctx.save();
-  path();
-  ctx.clip();
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, stripeW, h);
-  ctx.restore();
-
-  ctx.fillStyle = '#eef4ef';
-  ctx.font = `600 ${fontSize}px 'Inter', sans-serif`;
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.fillText(name, x+stripeW+8*S, y+h/2, w-stripeW-16*S);
-}
 function loadImg(src){
   return new Promise(res=>{
     if(!src){res(null);return;}
@@ -856,37 +825,107 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
   }
 
-  // lista de nomes (titulares depois banco), cada um num contêiner com
-  // fundo neutro fixo + faixa na cor do time — nunca pinta o contêiner
-  // inteiro com a cor do time, pra não depender de calcular contraste
+  // lista de nomes (titulares depois banco): sem faixa de cor, hierarquia
+  // só por tipografia (tamanho/peso), número solto antes do nome nos
+  // titulares, banco menor e apagado. Linhas escalam pra preencher o
+  // espaço disponível (fica maior com poucos jogadores, menor com muitos).
   if(showNameList){
-    const listX0 = 10*S, listX1 = listW - 10*S;
-    const groups = [
-      { label:'STARTERS', items: state.starters, fallback:'Player' },
-      { label:'BENCH', items: state.bench, fallback:'Sub' }
-    ];
-    const totalNames = state.starters.length + state.bench.length;
-    const labelH = 16*S, gap = 4*S;
+    const listX0 = 14*S, listX1 = listW - 14*S;
     // respiro extra abaixo do cabeçalho: o texto da formação já desce um
-    // pouco além de Y0, sem isso "TITULARES" quase encosta nele
-    const listTopGap = 16*S;
-    const availableH = (Y1 - (Y0+listTopGap)) - groups.filter(g=>g.items.length).length*labelH;
-    const rowH = Math.max(20*S, Math.min(34*S, (availableH - gap*totalNames) / totalNames));
-    const fontSize = Math.max(9*S, rowH*0.4);
+    // pouco além de Y0, sem isso "STARTERS" quase encosta nele
+    const listTop = Y0 + 16*S;
+    // escudo no rodapé é decorativo: só reserva espaço pra ele se sobrar
+    // altura suficiente pra manter a lista legível (escala >= 0.8); com
+    // elenco grande (banco sem limite de tamanho no app), solta o espaço
+    // reservado e prioriza os nomes em vez de forçar a lista a espremer
+    let listBottomReserved = badgeImg ? 120*S : 0;
 
-    let cy = Y0 + listTopGap;
-    groups.forEach(g=>{
-      if(!g.items.length) return;
-      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      ctx.fillStyle='rgba(255,255,255,.55)';
-      ctx.font=`600 ${11*S}px 'Inter', sans-serif`;
-      ctx.fillText(g.label, listX0, cy + labelH*0.75);
-      cy += labelH;
-      g.items.forEach((p,i)=>{
-        drawNamePill(ctx, listX0, cy, listX1-listX0, rowH, p.name || (g.fallback+' '+(i+1)), state.teamColor, fontSize, S);
-        cy += rowH + gap;
-      });
-    });
+    const totalNames = state.starters.length + state.bench.length;
+    let scale = 1, starterRowH = 0, benchRowH = 0;
+    if(totalNames > 0){
+      const naturalStarterRowH = 27*S, naturalBenchRowH = 16*S;
+      // constantes fixas (não escalam com "scale") repetidas exatamente
+      // como no desenho abaixo, pra o cálculo bater com o espaço realmente
+      // ocupado — se divergirem, a lista pode invadir a área reservada
+      // pro escudo ou faltar altura sem ninguém perceber
+      const labelH = 22*S, dividerGap = 10*S, sectionGap = 20*S, benchLabelGap = 14*S;
+      // só as linhas (rowH) escalam de verdade; label/divisor/gaps ficam do
+      // mesmo tamanho sempre. Por isso a escala não pode ser "disponível /
+      // total", tem que descontar antes o que não escala:
+      // disponível = fixo + escala*linhas  =>  escala = (disponível-fixo)/linhas
+      const fixedSum = (state.starters.length ? labelH + dividerGap : 0)
+                      + (state.bench.length ? (state.starters.length?sectionGap:0) + benchLabelGap : 0);
+      const rowSum = state.starters.length*naturalStarterRowH + state.bench.length*naturalBenchRowH;
+      let availableH = (Y1 - listBottomReserved) - listTop;
+      scale = (availableH - fixedSum) / rowSum;
+      if(listBottomReserved > 0 && scale < 0.8){
+        listBottomReserved = 0;
+        availableH = (Y1 - listBottomReserved) - listTop;
+        scale = (availableH - fixedSum) / rowSum;
+      }
+      scale = Math.max(0.55, Math.min(1.6, scale));
+      starterRowH = naturalStarterRowH*scale; benchRowH = naturalBenchRowH*scale;
+
+      let cy = listTop;
+
+      if(state.starters.length){
+        // "STARTERS": só tipografia, letter-spacing manual (canvas não
+        // tem a propriedade nativa), com linha divisória sutil embaixo
+        ctx.fillStyle = '#fff';
+        ctx.font = `700 ${15*S}px 'Inter', sans-serif`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        let lx = listX0;
+        'STARTERS'.split('').forEach(ch=>{ ctx.fillText(ch, lx, cy+labelH*0.7); lx += ctx.measureText(ch).width + 1.5*S; });
+        cy += labelH;
+        ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(listX0, cy); ctx.lineTo(listX1, cy); ctx.stroke();
+        cy += dividerGap;
+
+        state.starters.forEach((p,i)=>{
+          ctx.fillStyle = 'rgba(255,255,255,.4)';
+          ctx.font = `600 ${12*scale}px 'Inter', sans-serif`;
+          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+          ctx.fillText(p.number||'', listX0+22*S, cy+starterRowH/2);
+          ctx.fillStyle = '#fff';
+          ctx.font = `700 ${13.5*scale}px 'Inter', sans-serif`;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(p.name || ('Player '+(i+1)), listX0+32*S, cy+starterRowH/2, listX1-listX0-32*S);
+          cy += starterRowH;
+        });
+      }
+
+      if(state.bench.length){
+        if(state.starters.length) cy += sectionGap;
+        ctx.fillStyle = 'rgba(255,255,255,.4)';
+        ctx.font = `600 ${10.5*S}px 'Inter', sans-serif`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        let lx = listX0;
+        'BENCH'.split('').forEach(ch=>{ ctx.fillText(ch, lx, cy); lx += ctx.measureText(ch).width + 1*S; });
+        cy += benchLabelGap;
+
+        state.bench.forEach((p,i)=>{
+          ctx.fillStyle = 'rgba(255,255,255,.5)';
+          ctx.font = `500 ${11*scale*0.85}px 'Inter', sans-serif`;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(p.name || ('Sub '+(i+1)), listX0, cy+benchRowH/2, listX1-listX0);
+          cy += benchRowH;
+        });
+      }
+    }
+
+    // escudo grande e apagado, ancorado embaixo da lista, só quando existe
+    // um escudo de verdade e sobrou espaço reservado pra ele (ver acima:
+    // com banco muito grande, esse espaço é liberado pra lista primeiro)
+    if(badgeImg && listBottomReserved > 0){
+      const shieldSize = 90*S;
+      const scale = Math.min(shieldSize/badgeImg.width, shieldSize/badgeImg.height);
+      const dw = badgeImg.width*scale, dh = badgeImg.height*scale;
+      const cx = listW/2, cyBottom = Y1 - dh*0.4;
+      ctx.save();
+      ctx.globalAlpha = 0.14;
+      ctx.drawImage(badgeImg, cx-dw/2, cyBottom-dh/2, dw, dh);
+      ctx.restore();
+    }
   }
 
   // players — a posição já vem calculada como "distância do gol" (p.x) e
