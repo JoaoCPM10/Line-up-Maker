@@ -855,11 +855,14 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ];
     const totalNames = state.starters.length + state.bench.length;
     const labelH = 16*S, gap = 4*S;
-    const availableH = (Y1 - Y0) - groups.filter(g=>g.items.length).length*labelH;
+    // respiro extra abaixo do cabeçalho: o texto da formação já desce um
+    // pouco além de Y0, sem isso "TITULARES" quase encosta nele
+    const listTopGap = 16*S;
+    const availableH = (Y1 - (Y0+listTopGap)) - groups.filter(g=>g.items.length).length*labelH;
     const rowH = Math.max(20*S, Math.min(34*S, (availableH - gap*totalNames) / totalNames));
     const fontSize = Math.max(9*S, rowH*0.4);
 
-    let cy = Y0;
+    let cy = Y0 + listTopGap;
     groups.forEach(g=>{
       if(!g.items.length) return;
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
