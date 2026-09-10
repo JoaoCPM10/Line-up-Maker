@@ -134,6 +134,67 @@ h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
   flex-wrap:wrap;
   margin-bottom:16px;
 }
+/* botões da barra de ações: ícone + tooltip no hover, no lugar do texto no
+   próprio botão (texto continua existindo, só que em data-tip/aria-label,
+   pra não perder acessibilidade nem a leitura de tela) */
+.icon-btn{
+  appearance:none;
+  border:1px solid var(--line);
+  background:var(--panel-2);
+  color:var(--text);
+  width:40px;
+  height:40px;
+  border-radius:7px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:inherit;
+  position:relative;
+  transition:filter .15s ease, border-color .15s ease, background-color .15s ease, transform .1s ease;
+}
+.icon-btn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.icon-btn:hover{border-color:#3a464e; filter:brightness(1.1);}
+.icon-btn:active{transform:translateY(1px); filter:brightness(.92);}
+.icon-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.icon-btn.ghost{background:transparent;}
+.icon-btn.ghost:hover{background:rgba(255,255,255,.04);}
+.icon-btn.danger{color:#ff8a80;}
+.icon-btn.danger:hover{background:rgba(255,138,128,.08);border-color:rgba(255,138,128,.4);}
+.icon-btn::after{
+  content:attr(data-tip);
+  position:absolute;
+  bottom:calc(100% + 8px);
+  left:50%;
+  transform:translateX(-50%) translateY(4px);
+  background:#0a0d10;
+  border:1px solid var(--line);
+  color:var(--text);
+  font-size:12px;
+  font-weight:500;
+  padding:6px 10px;
+  border-radius:6px;
+  white-space:nowrap;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease, transform .12s ease;
+  z-index:10;
+}
+.icon-btn::before{
+  content:"";
+  position:absolute;
+  bottom:calc(100% + 3px);
+  left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;
+  border-top-color:#0a0d10;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+  z-index:10;
+}
+.icon-btn:hover::after,.icon-btn:focus-visible::after{opacity:1; transform:translateX(-50%) translateY(0);}
+.icon-btn:hover::before,.icon-btn:focus-visible::before{opacity:1;}
 .badge-upload{
   width:34px;height:34px;border-radius:50%;
   background:var(--panel-2);
