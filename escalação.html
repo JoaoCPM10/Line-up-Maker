@@ -715,9 +715,14 @@ async function renderLineupToCanvas(cv, onlyIcons){
   // todo valor fixo em pixel (raio dos círculos, fontes, faixas de
   // cabeçalho/banco) escala igual nas duas orientações.
   const S = 1.5;
-  const headerH = 54*S;            // espaço reservado no topo pro nome/escudo/formação
-  const benchH  = 64*S;            // espaço reservado embaixo pro banco
-  const fieldBottom = H - benchH;  // o campo termina aqui, sem invadir o banco
+  const headerH = 54*S;    // espaço reservado no topo pro nome/escudo/formação
+  // faixa de ícones do banco embaixo do campo: só existe quando NÃO tem a
+  // lista de nomes lateral (retrato, que é estreito e não cabe a lista) —
+  // com a lista, o banco já aparece nela, a faixa só duplicaria e tomaria
+  // espaço à toa. Nunca aparece no export só-ícones.
+  const needsBenchStrip = !onlyIcons && !showNameList;
+  const benchH = needsBenchStrip ? 64*S : 0;
+  const fieldBottom = H - benchH; // o campo termina aqui, sem invadir a faixa do banco quando ela existe
 
   const listW = showNameList ? Math.round(W*0.22) : 0; // faixa da lista de nomes, só quando ativa
 
@@ -885,7 +890,7 @@ async function renderLineupToCanvas(cv, onlyIcons){
           ctx.fillStyle = 'rgba(255,255,255,.4)';
           ctx.font = `600 ${12*scale}px 'Inter', sans-serif`;
           ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-          ctx.fillText(p.number||'', listX0+22*S, cy+starterRowH/2);
+          ctx.fillText(p.number||'–', listX0+22*S, cy+starterRowH/2);
           ctx.fillStyle = '#fff';
           ctx.font = `700 ${13.5*scale}px 'Inter', sans-serif`;
           ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
@@ -965,9 +970,9 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.fillText(p.pos||'', cx, showNameList ? cy+r+16*S : labelY);
   }
 
-  if(!onlyIcons){
-    // bench strip bar (fundo sólido, separado do gramado; sempre uma faixa
-    // horizontal embaixo, em qualquer orientação)
+  if(needsBenchStrip){
+    // faixa de ícones do banco (fundo sólido, separado do gramado; só
+    // existe em retrato, ver needsBenchStrip acima)
     const benchY = fieldBottom + benchH/2 + 4*S;
     ctx.fillStyle='#10151a';
     ctx.fillRect(0,fieldBottom,W,benchH);
