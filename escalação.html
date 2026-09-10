@@ -738,13 +738,11 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
 
   // pitch stripes (grama vai até o limite do campo, não embaixo do banco,
   // nem embaixo da lista de nomes quando ela existe; em pé, as listras
-  // giram 90° junto com o resto do campo). No modo sem campo, entra um
-  // fundo sólido no lugar — mesma cor do painel da lista, pra ficar tudo
-  // uma coisa só visualmente.
+  // giram 90° junto com o resto do campo). No modo sem campo, não pinta
+  // nada ali — o canvas já começa transparente (clearRect lá em cima) e
+  // fica assim, só a área da grama mesmo, não o painel da lista/banco.
   if(!onlyIcons && noPitch){
-    ctx.fillStyle = '#10151a';
-    if(portrait) ctx.fillRect(0,0,W,fieldBottom);
-    else ctx.fillRect(listW,0,W-listW,fieldBottom);
+    // de propósito sem desenhar nada: área do campo fica transparente
   } else if(!onlyIcons){
     const stripes=12;
     if(portrait){
