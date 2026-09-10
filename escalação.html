@@ -93,6 +93,9 @@
     <button class="icon-btn" id="exportIconsBtn" data-tip="Export icons (transparent background)" aria-label="Export icons (transparent background)">
       <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2.6"/><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/></svg>
     </button>
+    <button class="icon-btn" id="exportNoPitchBtn" data-tip="Export without pitch background" aria-label="Export without pitch background">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><circle cx="12" cy="12" r="3.2"/><path d="M4 4l16 16" stroke-width="2"/></svg>
+    </button>
     <button class="icon-btn" id="saveBtn" data-tip="Save lineup" aria-label="Save lineup">
       <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
     </button>
@@ -694,7 +697,7 @@ function loadImg(src){
 // gramado, as marcações do campo, o cabeçalho e o banco — só os círculos
 // dos titulares na posição da formação, com fundo transparente, pra colar
 // por cima de qualquer coisa no vídeo (não só do campo desenhado pelo app).
-async function renderLineupToCanvas(cv, onlyIcons){
+async function renderLineupToCanvas(cv, onlyIcons, noPitch){
   const ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high'; // melhora a reamostragem de fotos e escudo ao desenhar em tamanho menor
@@ -735,8 +738,14 @@ async function renderLineupToCanvas(cv, onlyIcons){
 
   // pitch stripes (grama vai até o limite do campo, não embaixo do banco,
   // nem embaixo da lista de nomes quando ela existe; em pé, as listras
-  // giram 90° junto com o resto do campo)
-  if(!onlyIcons){
+  // giram 90° junto com o resto do campo). No modo sem campo, entra um
+  // fundo sólido no lugar — mesma cor do painel da lista, pra ficar tudo
+  // uma coisa só visualmente.
+  if(!onlyIcons && noPitch){
+    ctx.fillStyle = '#10151a';
+    if(portrait) ctx.fillRect(0,0,W,fieldBottom);
+    else ctx.fillRect(listW,0,W-listW,fieldBottom);
+  } else if(!onlyIcons){
     const stripes=12;
     if(portrait){
       const stripeH = fieldBottom/stripes;
@@ -785,7 +794,7 @@ async function renderLineupToCanvas(cv, onlyIcons){
     ctx.restore();
   }
 
-  if(!onlyIcons){
+  if(!onlyIcons && !noPitch){
     const goalA = portrait ? Y0 : X0, goalB = portrait ? Y1 : X1;
     const widthA = portrait ? X0 : Y0, widthB = portrait ? X1 : Y1;
     const widthMid = (widthA+widthB)/2;
@@ -1020,8 +1029,14 @@ async function exportIconsPNG(){
   await renderLineupToCanvas(cv, true);
   downloadCanvas(cv, `lineup-icons-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.png`);
 }
+async function exportNoPitchPNG(){
+  const cv = document.getElementById('exportCanvas');
+  await renderLineupToCanvas(cv, false, true);
+  downloadCanvas(cv, `lineup-no-pitch-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.png`);
+}
 document.getElementById('exportBtn').addEventListener('click', exportPNG);
 document.getElementById('exportIconsBtn').addEventListener('click', exportIconsPNG);
+document.getElementById('exportNoPitchBtn').addEventListener('click', exportNoPitchPNG);
 
 // ---------- Save / Load lineups (arquivo .json local, sem servidor) ----------
 // "Salvar" baixa um arquivo .json com o estado inteiro; "Carregar" lê esse
