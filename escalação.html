@@ -693,6 +693,19 @@ function loadImg(src){
   });
 }
 
+// Desenha texto letra por letra com espaçamento manual (canvas não tem
+// letter-spacing nativo), centralizado entre x0 e x1. ctx.font/fillStyle
+// já devem estar setados antes de chamar; mexe em ctx.textAlign (sempre
+// deixa 'left' no final, que é o que o resto do código espera).
+function drawSpacedLabelCentered(ctx, text, x0, x1, baselineY, spacing){
+  ctx.textAlign = 'left';
+  let total = 0;
+  for(const ch of text) total += ctx.measureText(ch).width + spacing;
+  total -= spacing; // sem espaçamento sobrando depois da última letra
+  let lx = (x0+x1)/2 - total/2;
+  for(const ch of text){ ctx.fillText(ch, lx, baselineY); lx += ctx.measureText(ch).width + spacing; }
+}
+
 // Desenha a escalação inteira no canvas. Com onlyIcons=true, pula o
 // gramado, as marcações do campo, o cabeçalho e o banco — só os círculos
 // dos titulares na posição da formação, com fundo transparente, pra colar
@@ -779,9 +792,11 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
   const badgeImg = onlyIcons ? null : await loadImg(state.badge);
 
   // marca d'água do escudo: grande, bem apagada, atrás das marcações e dos
-  // jogadores (desenhada antes deles). Não entra no modo só-ícones, porque
-  // esse export precisa ficar limpo pra colar sobre qualquer coisa no vídeo.
-  if(!onlyIcons && badgeImg){
+  // jogadores (desenhada antes deles). Não entra no modo só-ícones (precisa
+  // ficar limpo pra colar sobre qualquer coisa no vídeo) nem no modo sem
+  // campo (em paisagem o escudo já aparece com mais destaque no rodapé da
+  // lista; em retrato simplesmente não tem escudo nesse export, e tudo bem).
+  if(!onlyIcons && !noPitch && badgeImg){
     const wmCenterX = (X0+X1)/2, wmCenterY = (Y0+Y1)/2;
     const wmBox = Math.min(X1-X0, Y1-Y0) * 0.5; // ~50% da menor dimensão da área do campo
     const scale = Math.min(wmBox/badgeImg.width, wmBox/badgeImg.height);
@@ -820,21 +835,16 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
   }
 
   if(!onlyIcons){
-    if(badgeImg){
-      ctx.save();
-      ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.closePath(); ctx.clip();
-      ctx.drawImage(badgeImg,26*S,22*S,40*S,40*S);
-      ctx.restore();
-      ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2*S;
-      ctx.beginPath(); ctx.arc(46*S,42*S,20*S,0,Math.PI*2); ctx.stroke();
-    }
+    // sem o escudo pequeno do lado do nome do time (removido a pedido: o
+    // escudo já aparece com destaque no rodapé da lista); nome sempre
+    // começa na mesma posição, sem recuo pra abrir espaço pro escudo
     ctx.fillStyle='#eef4ef';
     ctx.font=`600 ${22*S}px 'Oswald', sans-serif`;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillText(state.teamName||'My Team', badgeImg?78*S:28*S, 38*S);
+    ctx.fillText(state.teamName||'My Team', 28*S, 38*S);
     ctx.font=`${12*S}px 'Inter', sans-serif`;
     ctx.fillStyle='rgba(255,255,255,.75)';
-    ctx.fillText(state.formation, badgeImg?78*S:28*S, 55*S);
+    ctx.fillText(state.formation, 28*S, 55*S);
   }
 
   // lista de nomes (titulares depois banco): sem faixa de cor, hierarquia
@@ -881,13 +891,12 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
       let cy = listTop;
 
       if(state.starters.length){
-        // "STARTERS": só tipografia, letter-spacing manual (canvas não
-        // tem a propriedade nativa), com linha divisória sutil embaixo
+        // "STARTERS": só tipografia, centralizado na largura da coluna,
+        // com linha divisória sutil embaixo
         ctx.fillStyle = '#fff';
         ctx.font = `700 ${15*S}px 'Inter', sans-serif`;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        let lx = listX0;
-        'STARTERS'.split('').forEach(ch=>{ ctx.fillText(ch, lx, cy+labelH*0.7); lx += ctx.measureText(ch).width + 1.5*S; });
+        ctx.textBaseline = 'alphabetic';
+        drawSpacedLabelCentered(ctx, 'STARTERS', listX0, listX1, cy+labelH*0.7, 1.5*S);
         cy += labelH;
         ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(listX0, cy); ctx.lineTo(listX1, cy); ctx.stroke();
@@ -910,9 +919,8 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
         if(state.starters.length) cy += sectionGap;
         ctx.fillStyle = 'rgba(255,255,255,.4)';
         ctx.font = `600 ${10.5*S}px 'Inter', sans-serif`;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        let lx = listX0;
-        'BENCH'.split('').forEach(ch=>{ ctx.fillText(ch, lx, cy); lx += ctx.measureText(ch).width + 1*S; });
+        ctx.textBaseline = 'alphabetic';
+        drawSpacedLabelCentered(ctx, 'BENCH', listX0, listX1, cy, 1*S);
         cy += benchLabelGap;
 
         state.bench.forEach((p,i)=>{
@@ -925,16 +933,18 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
       }
     }
 
-    // escudo grande e apagado, ancorado embaixo da lista, só quando existe
-    // um escudo de verdade e sobrou espaço reservado pra ele (ver acima:
-    // com banco muito grande, esse espaço é liberado pra lista primeiro)
+    // escudo em destaque, ancorado embaixo da lista, só quando existe um
+    // escudo de verdade e sobrou espaço reservado pra ele (ver acima: com
+    // banco muito grande, esse espaço é liberado pra lista primeiro).
+    // Antes era uma marca d'água quase invisível (alpha .14); agora é bem
+    // mais visível, pra funcionar como identificação real, não só textura.
     if(badgeImg && listBottomReserved > 0){
-      const shieldSize = 90*S;
+      const shieldSize = 110*S;
       const scale = Math.min(shieldSize/badgeImg.width, shieldSize/badgeImg.height);
       const dw = badgeImg.width*scale, dh = badgeImg.height*scale;
       const cx = listW/2, cyBottom = Y1 - dh*0.4;
       ctx.save();
-      ctx.globalAlpha = 0.14;
+      ctx.globalAlpha = 0.4;
       ctx.drawImage(badgeImg, cx-dw/2, cyBottom-dh/2, dw, dh);
       ctx.restore();
     }
