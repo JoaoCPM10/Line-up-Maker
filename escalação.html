@@ -87,15 +87,27 @@
   </div>
 
   <div class="actions-row">
-    <button class="icon-btn primary" id="exportBtn" data-tip="Export PNG (16:9)" aria-label="Export PNG (16:9)">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-    </button>
-    <button class="icon-btn" id="exportIconsBtn" data-tip="Export icons (transparent background)" aria-label="Export icons (transparent background)">
-      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2.6"/><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/></svg>
-    </button>
-    <button class="icon-btn" id="exportNoPitchBtn" data-tip="Export without pitch background" aria-label="Export without pitch background">
-      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><circle cx="12" cy="12" r="3.2"/><path d="M4 4l16 16" stroke-width="2"/></svg>
-    </button>
+    <div class="export-wrap" id="exportWrap">
+      <button class="export-btn" id="exportMainBtn" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        Export
+        <svg class="chev" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="export-menu" id="exportMenu" role="menu">
+        <button class="export-item" id="exportBtn" role="menuitem">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          <span class="label"><b id="exportBtnLabel">Export PNG (16:9)</b><span>Full lineup, pitch and name list</span></span>
+        </button>
+        <button class="export-item" id="exportIconsBtn" role="menuitem">
+          <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" stroke-dasharray="3 2.6"/><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/></svg>
+          <span class="label"><b>Export icons</b><span>Transparent background</span></span>
+        </button>
+        <button class="export-item" id="exportNoPitchBtn" role="menuitem">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/><circle cx="12" cy="12" r="3.2"/><path d="M4 4l16 16" stroke-width="2"/></svg>
+          <span class="label"><b>Export without pitch</b><span>Transparent pitch, keeps name list</span></span>
+        </button>
+      </div>
+    </div>
     <button class="icon-btn" id="saveBtn" data-tip="Save lineup" aria-label="Save lineup">
       <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
     </button>
@@ -459,9 +471,7 @@ function render(){
 
   const portraitMode = state.orientation === 'portrait';
   pitchWrap.classList.toggle('portrait', portraitMode);
-  const exportBtnLabel = portraitMode ? 'Export PNG (9:16)' : 'Export PNG (16:9)';
-  document.getElementById('exportBtn').setAttribute('data-tip', exportBtnLabel);
-  document.getElementById('exportBtn').setAttribute('aria-label', exportBtnLabel);
+  document.getElementById('exportBtnLabel').textContent = portraitMode ? 'Export PNG (9:16)' : 'Export PNG (16:9)';
 
   pitchWrap.querySelectorAll('.token').forEach(n=>n.remove());
   state.starters.forEach((p,i)=>{
@@ -1042,9 +1052,33 @@ async function exportNoPitchPNG(){
   await renderLineupToCanvas(cv, false, true);
   downloadCanvas(cv, `lineup-no-pitch-${(state.teamName||'team').toLowerCase().replace(/\s+/g,'-')}.png`);
 }
-document.getElementById('exportBtn').addEventListener('click', exportPNG);
-document.getElementById('exportIconsBtn').addEventListener('click', exportIconsPNG);
-document.getElementById('exportNoPitchBtn').addEventListener('click', exportNoPitchPNG);
+// Dropdown único de export: substitui os 3 botões separados que existiam
+// antes (Export PNG / ícones / sem campo), que eram parecidos demais um
+// do outro na barra e fáceis de confundir num clique rápido.
+const exportWrap = document.getElementById('exportWrap');
+const exportMainBtn = document.getElementById('exportMainBtn');
+const exportMenu = document.getElementById('exportMenu');
+function closeExportMenu(){
+  exportMenu.classList.remove('open');
+  exportMainBtn.classList.remove('open');
+  exportMainBtn.setAttribute('aria-expanded', 'false');
+}
+exportMainBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  const willOpen = !exportMenu.classList.contains('open');
+  exportMenu.classList.toggle('open', willOpen);
+  exportMainBtn.classList.toggle('open', willOpen);
+  exportMainBtn.setAttribute('aria-expanded', String(willOpen));
+});
+document.addEventListener('click', e=>{
+  if(!exportWrap.contains(e.target)) closeExportMenu();
+});
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape') closeExportMenu();
+});
+document.getElementById('exportBtn').addEventListener('click', ()=>{ closeExportMenu(); exportPNG(); });
+document.getElementById('exportIconsBtn').addEventListener('click', ()=>{ closeExportMenu(); exportIconsPNG(); });
+document.getElementById('exportNoPitchBtn').addEventListener('click', ()=>{ closeExportMenu(); exportNoPitchPNG(); });
 
 // ---------- Save / Load lineups (arquivo .json local, sem servidor) ----------
 // "Salvar" baixa um arquivo .json com o estado inteiro; "Carregar" lê esse
