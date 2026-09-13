@@ -15,6 +15,86 @@ function drawSpacedLabelCentered(ctx, text, x0, x1, baselineY, spacing){
   for(const ch of text){ ctx.fillText(ch, lx, baselineY); lx += ctx.measureText(ch).width + spacing; }
 }
 
+// Limita a luminosidade (HSL) de uma cor hex a um teto — usada na fita do
+// número do titular. Time com cor clara escolhida (amarelo, branco, ciano)
+// deixaria o número branco ilegível se a fita usasse a cor crua; isso
+// escurece mantendo o matiz (a fita continua "na cor do time", só não
+// mais clara que o teto), garantindo contraste sem virar sempre a mesma
+// cor neutra pra todo mundo.
+function clampColorLightness(hex, maxL){
+  let r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h=0, s=0, l=(max+min)/2;
+  if(max!==min){
+    const d = max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){
+      case r: h=(g-b)/d+(g<b?6:0); break;
+      case g: h=(b-r)/d+2; break;
+      case b: h=(r-g)/d+4; break;
+    }
+    h/=6;
+  }
+  if(l <= maxL) return hex; // já está escura o bastante, mantém original
+  l = maxL;
+  function hue2rgb(p,q,t){
+    if(t<0)t+=1; if(t>1)t-=1;
+    if(t<1/6) return p+(q-p)*6*t;
+    if(t<1/2) return q;
+    if(t<2/3) return p+(q-p)*(2/3-t)*6;
+    return p;
+  }
+  let r2,g2,b2;
+  if(s===0){ r2=g2=b2=l; }
+  else{
+    const q = l<0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    r2 = hue2rgb(p,q,h+1/3); g2 = hue2rgb(p,q,h); b2 = hue2rgb(p,q,h-1/3);
+  }
+  const toHex = v => Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0');
+  return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
+}
+
+// Fita/bandeira com o número do titular: ponta em V à direita, achatada
+// (sem sombra/gradiente), cor do time já com luminosidade limitada.
+function drawNumberRibbon(ctx, x, y, w, h, color, number, fontSize){
+  const notch = h*0.32;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x+w-notch, y);
+  ctx.lineTo(x+w, y+h/2);
+  ctx.lineTo(x+w-notch, y+h);
+  ctx.lineTo(x, y+h);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${fontSize}px 'Oswald', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // centraliza um pouco à esquerda da ponta, pra não ficar puxado pro recorte
+  ctx.fillText(number, x + (w-notch*0.6)/2, y+h/2+1);
+}
+
+// Quebra de linha manual pro parágrafo corrido dos reservas — canvas não
+// tem wrap nativo em fillText(). Quebra por palavra inteira, nunca no meio.
+function wrapText(ctx, text, maxWidth){
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  words.forEach(word=>{
+    const test = line ? line+' '+word : word;
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  });
+  if(line) lines.push(line);
+  return lines;
+}
+
 // Desenha a escalação inteira no canvas. Com onlyIcons=true, pula o
 // gramado, as marcações do campo, o cabeçalho e o banco — só os círculos
 // dos titulares na posição da formação, com fundo transparente, pra colar
@@ -156,106 +236,102 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
     ctx.fillText(state.formation, 28*S, 55*S);
   }
 
-  // lista de nomes (titulares depois banco): sem faixa de cor, hierarquia
-  // só por tipografia (tamanho/peso), número solto antes do nome nos
-  // titulares, banco menor e apagado. Linhas escalam pra preencher o
-  // espaço disponível (fica maior com poucos jogadores, menor com muitos).
+  // lista de nomes: "STARTING XI" com fita numerada (cor do time, achatada,
+  // luminosidade limitada pra sempre ter contraste com o número branco) e
+  // nome maior centralizado; "SUBSTITUTIONS" como parágrafo corrido, bem
+  // mais compacto, que sobra mais espaço pros titulares se destacarem.
+  // Titular é sempre 11 (regra do futebol) — tamanho fixo generoso, não
+  // precisa escalar. Só o parágrafo do banco se adapta ao espaço restante.
   if(showNameList){
     const listX0 = 14*S, listX1 = listW - 14*S;
     // respiro extra abaixo do cabeçalho: o texto da formação já desce um
-    // pouco além de Y0, sem isso "STARTERS" quase encosta nele
+    // pouco além de Y0, sem isso "STARTING XI" quase encosta nele
     const listTop = Y0 + 16*S;
-    // escudo no rodapé é decorativo: só reserva espaço pra ele se sobrar
-    // altura suficiente pra manter a lista legível (escala >= 0.8); com
-    // elenco grande (banco sem limite de tamanho no app), solta o espaço
-    // reservado e prioriza os nomes em vez de forçar a lista a espremer
-    let listBottomReserved = badgeImg ? 120*S : 0;
+    const labelH = 26*S, dividerGap = 10*S, sectionGap = 22*S;
+    const ribbonW = 40*S, ribbonH = 26*S, starterRowH = 34*S;
+    const nameFontSize = 16*S, numberFontSize = 14*S;
+    const safeRibbonColor = clampColorLightness(state.teamColor || '#2f6fed', 0.42);
 
-    const totalNames = state.starters.length + state.bench.length;
-    let scale = 1, starterRowH = 0, benchRowH = 0;
-    if(totalNames > 0){
-      const naturalStarterRowH = 27*S, naturalBenchRowH = 16*S;
-      // constantes fixas (não escalam com "scale") repetidas exatamente
-      // como no desenho abaixo, pra o cálculo bater com o espaço realmente
-      // ocupado — se divergirem, a lista pode invadir a área reservada
-      // pro escudo ou faltar altura sem ninguém perceber
-      const labelH = 22*S, dividerGap = 10*S, sectionGap = 20*S, benchLabelGap = 14*S;
-      // só as linhas (rowH) escalam de verdade; label/divisor/gaps ficam do
-      // mesmo tamanho sempre. Por isso a escala não pode ser "disponível /
-      // total", tem que descontar antes o que não escala:
-      // disponível = fixo + escala*linhas  =>  escala = (disponível-fixo)/linhas
-      const fixedSum = (state.starters.length ? labelH + dividerGap : 0)
-                      + (state.bench.length ? (state.starters.length?sectionGap:0) + benchLabelGap : 0);
-      const rowSum = state.starters.length*naturalStarterRowH + state.bench.length*naturalBenchRowH;
-      let availableH = (Y1 - listBottomReserved) - listTop;
-      scale = (availableH - fixedSum) / rowSum;
-      if(listBottomReserved > 0 && scale < 0.8){
-        listBottomReserved = 0;
-        availableH = (Y1 - listBottomReserved) - listTop;
-        scale = (availableH - fixedSum) / rowSum;
-      }
-      scale = Math.max(0.55, Math.min(1.6, scale));
-      starterRowH = naturalStarterRowH*scale; benchRowH = naturalBenchRowH*scale;
+    let cy = listTop;
 
-      let cy = listTop;
+    if(state.starters.length){
+      ctx.fillStyle = '#fff';
+      ctx.font = `700 ${17*S}px 'Oswald', sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+      drawSpacedLabelCentered(ctx, 'STARTING XI', listX0, listX1, cy+labelH*0.7, 1.5*S);
+      cy += labelH;
+      ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(listX0, cy); ctx.lineTo(listX1, cy); ctx.stroke();
+      cy += dividerGap;
 
-      if(state.starters.length){
-        // "STARTERS": só tipografia, centralizado na largura da coluna,
-        // com linha divisória sutil embaixo
+      state.starters.forEach((p,i)=>{
+        const rowY = cy;
+        drawNumberRibbon(ctx, listX0, rowY+(starterRowH-ribbonH)/2, ribbonW, ribbonH, safeRibbonColor, p.number||'–', numberFontSize);
+        // nome centralizado no espaço que sobra à direita da fita (não na
+        // coluna inteira — a fita ocupa uma faixa fixa à esquerda)
         ctx.fillStyle = '#fff';
-        ctx.font = `700 ${15*S}px 'Inter', sans-serif`;
-        ctx.textBaseline = 'alphabetic';
-        drawSpacedLabelCentered(ctx, 'STARTERS', listX0, listX1, cy+labelH*0.7, 1.5*S);
-        cy += labelH;
-        ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(listX0, cy); ctx.lineTo(listX1, cy); ctx.stroke();
-        cy += dividerGap;
-
-        state.starters.forEach((p,i)=>{
-          ctx.fillStyle = 'rgba(255,255,255,.4)';
-          ctx.font = `600 ${12*scale}px 'Inter', sans-serif`;
-          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-          ctx.fillText(p.number||'–', listX0+22*S, cy+starterRowH/2);
-          ctx.fillStyle = '#fff';
-          ctx.font = `700 ${13.5*scale}px 'Inter', sans-serif`;
-          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillText(p.name || ('Player '+(i+1)), listX0+32*S, cy+starterRowH/2, listX1-listX0-32*S);
-          cy += starterRowH;
-        });
-      }
-
-      if(state.bench.length){
-        if(state.starters.length) cy += sectionGap;
-        ctx.fillStyle = 'rgba(255,255,255,.4)';
-        ctx.font = `600 ${10.5*S}px 'Inter', sans-serif`;
-        ctx.textBaseline = 'alphabetic';
-        drawSpacedLabelCentered(ctx, 'BENCH', listX0, listX1, cy, 1*S);
-        cy += benchLabelGap;
-
-        state.bench.forEach((p,i)=>{
-          ctx.fillStyle = 'rgba(255,255,255,.5)';
-          ctx.font = `500 ${11*scale*0.85}px 'Inter', sans-serif`;
-          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillText(p.name || ('Sub '+(i+1)), listX0, cy+benchRowH/2, listX1-listX0);
-          cy += benchRowH;
-        });
-      }
+        ctx.font = `700 ${nameFontSize}px 'Inter', sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const nameX0 = listX0 + ribbonW + 6*S, nameX1 = listX1;
+        ctx.fillText(p.name || ('Player '+(i+1)), (nameX0+nameX1)/2, rowY+starterRowH/2, nameX1-nameX0);
+        cy += starterRowH;
+      });
     }
 
-    // escudo em destaque, ancorado embaixo da lista, só quando existe um
-    // escudo de verdade e sobrou espaço reservado pra ele (ver acima: com
-    // banco muito grande, esse espaço é liberado pra lista primeiro).
-    // Antes era uma marca d'água quase invisível (alpha .14); agora é bem
-    // mais visível, pra funcionar como identificação real, não só textura.
-    if(badgeImg && listBottomReserved > 0){
-      const shieldSize = 110*S;
-      const scale = Math.min(shieldSize/badgeImg.width, shieldSize/badgeImg.height);
-      const dw = badgeImg.width*scale, dh = badgeImg.height*scale;
-      const cx = listW/2, cyBottom = Y1 - dh*0.4;
-      ctx.save();
-      ctx.globalAlpha = 0.4;
-      ctx.drawImage(badgeImg, cx-dw/2, cyBottom-dh/2, dw, dh);
-      ctx.restore();
+    if(state.bench.length){
+      if(state.starters.length) cy += sectionGap;
+      ctx.fillStyle = '#fff';
+      ctx.font = `700 ${13*S}px 'Oswald', sans-serif`;
+      ctx.textBaseline = 'alphabetic';
+      drawSpacedLabelCentered(ctx, 'SUBSTITUTIONS', listX0, listX1, cy, 1*S);
+      cy += 16*S;
+
+      // parágrafo corrido "12. Nome, 13. Nome, ..." (sem número quando o
+      // jogador não tem um definido, pra não inventar um que pode colidir
+      // com outro já usado). Recua a fonte só o necessário pra caber no
+      // espaço restante até o fim da coluna; nada é reservado pro escudo
+      // aqui de antemão — ele usa o que sobrar DEPOIS deste parágrafo.
+      const availableForSubs = Y1 - cy;
+      let subsFontSize = 11*S;
+      let subsLines = [];
+      const fullText = state.bench.map((p,i)=>{
+        const name = p.name || ('Sub '+(i+1));
+        return p.number ? `${p.number}. ${name}` : name;
+      }).join(', ');
+      while(subsFontSize > 6*S){
+        ctx.font = `500 ${subsFontSize}px 'Inter', sans-serif`;
+        subsLines = wrapText(ctx, fullText, listX1-listX0);
+        const neededH = subsLines.length * (subsFontSize*1.5);
+        if(neededH <= availableForSubs || availableForSubs <= 0) break;
+        subsFontSize -= 0.5*S;
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      const subsLineH = subsFontSize*1.5;
+      subsLines.forEach((line,i)=>{
+        ctx.fillText(line, listX0, cy + i*subsLineH + subsFontSize);
+      });
+      cy += subsLines.length * subsLineH;
+    }
+
+    // escudo em destaque: ocupa o que sobrar de verdade depois do conteúdo
+    // até o fim da coluna, em vez de um valor fixo reservado de antemão —
+    // com o banco compacto agora, geralmente sobra bem mais espaço do que
+    // antes, e um valor fixo deixaria um vão vazio sem necessidade.
+    if(badgeImg){
+      const leftoverH = Y1 - cy;
+      const margin = 16*S;
+      const maxSize = 150*S;
+      const shieldSize = Math.min(maxSize, leftoverH - margin*2, listW*0.5);
+      if(shieldSize > 20*S){
+        const bscale = Math.min(shieldSize/badgeImg.width, shieldSize/badgeImg.height);
+        const dw = badgeImg.width*bscale, dh = badgeImg.height*bscale;
+        const cx = listW/2, cyCenter = cy + margin + dh/2;
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.drawImage(badgeImg, cx-dw/2, cyCenter-dh/2, dw, dh);
+        ctx.restore();
+      }
     }
   }
 
