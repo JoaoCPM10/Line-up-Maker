@@ -7,6 +7,41 @@
 const pitchWrap = document.getElementById('pitchWrap');
 const benchStrip = document.getElementById('benchStrip');
 
+// Troca de posição entre titulares por clique: clique simples seleciona
+// (índice guardado aqui, sobrevive a um render() já que não é reconstruído
+// a cada chamada), clique em outro titular troca x/y/pos entre os dois —
+// nome/número/foto ficam com cada jogador, só a posição no campo muda,
+// mesmo princípio de "identidade presa ao índice" que o arrastar já usa.
+// Clique duplo continua abrindo a modal de edição (ver o listener de
+// clique no token abaixo pra como os dois gestos são diferenciados).
+let swapSelectedIndex = null;
+
+function clearSwapSelection(){
+  if(swapSelectedIndex === null) return;
+  const prevEl = pitchWrap.querySelector(`.token[data-index="${swapSelectedIndex}"]`);
+  if(prevEl) prevEl.classList.remove('swap-selected');
+  swapSelectedIndex = null;
+}
+
+function handleTokenSwapClick(i){
+  if(swapSelectedIndex === null){
+    swapSelectedIndex = i;
+    const el = pitchWrap.querySelector(`.token[data-index="${i}"]`);
+    if(el) el.classList.add('swap-selected');
+    return;
+  }
+  if(swapSelectedIndex === i){
+    clearSwapSelection();
+    return;
+  }
+  const a = state.starters[swapSelectedIndex], b = state.starters[i];
+  [a.x, b.x] = [b.x, a.x];
+  [a.y, b.y] = [b.y, a.y];
+  [a.pos, b.pos] = [b.pos, a.pos];
+  clearSwapSelection();
+  render();
+}
+
 function render(){
   document.getElementById('hnameShow').textContent = state.teamName || "My Team";
   document.getElementById('hformShow').textContent = state.formation;
@@ -40,7 +75,27 @@ function render(){
       <div class="tpos">${p.pos}</div>
     `;
     attachDrag(t,i);
-    t.addEventListener('click', (ev)=>{ if(t.dataset.dragged==='1'){t.dataset.dragged='0';return;} openModal('starter',i); });
+    if(swapSelectedIndex === i) t.classList.add('swap-selected');
+    // clique simples seleciona/troca/desmarca (handleTokenSwapClick); um
+    // segundo clique rápido no MESMO ícone (dentro de 250ms) é tratado como
+    // duplo clique e abre a modal em vez disso — cancela o clique simples
+    // pendente antes de rodar, pra nunca disparar uma troca sem querer no
+    // meio de um duplo clique em cima de outro ícone já selecionado
+    let clickTimer = null;
+    t.addEventListener('click', (ev)=>{
+      if(t.dataset.dragged==='1'){ t.dataset.dragged='0'; return; }
+      if(clickTimer){
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        clearSwapSelection();
+        openModal('starter', i);
+        return;
+      }
+      clickTimer = setTimeout(()=>{
+        clickTimer = null;
+        handleTokenSwapClick(i);
+      }, 250);
+    });
     pitchWrap.appendChild(t);
   });
 
