@@ -65,7 +65,12 @@ function render(){
   addBtn.title='Add substitute';
   addBtn.addEventListener('click', ()=>{
     if(state.bench.length>=9) return;
-    state.bench.push(blankPlayer(""));
+    // número automático seguindo a sequência atual (titulares + banco já
+    // existentes); só na criação do slot, editar depois pela modal sempre
+    // vale por cima
+    const p = blankPlayer("");
+    p.number = String(state.starters.length + state.bench.length + 1);
+    state.bench.push(p);
     render();
   });
   benchStrip.appendChild(addBtn);
