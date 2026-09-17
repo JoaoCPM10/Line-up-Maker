@@ -343,19 +343,21 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
     const cx = portrait ? X0 + (p.y/100)*(X1-X0) : X0 + (p.x/100)*(X1-X0);
     const cy = portrait ? Y0 + (p.x/100)*(Y1-Y0) : Y0 + (p.y/100)*(Y1-Y0);
     const r=40*S;
-    ctx.beginPath(); ctx.arc(cx,cy,r+2,0,Math.PI*2);
-    ctx.fillStyle=state.teamColor; ctx.fill();
     const img = await loadImg(p.photo);
     if(img){
-      drawCircleImage(ctx,img,cx,cy,r);
+      // com foto, sem fundo colorido nem anel — só a foto, mesmo espaço
+      // de sempre (2r de lado), cantos arredondados em vez de círculo
+      drawRoundedImage(ctx,img,cx,cy,r,10*S);
     } else {
+      ctx.beginPath(); ctx.arc(cx,cy,r+2,0,Math.PI*2);
+      ctx.fillStyle=state.teamColor; ctx.fill();
       ctx.fillStyle='#fff';
       ctx.font=`600 ${31*S}px 'Oswald', sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(p.number||'', cx, cy+1);
+      ctx.strokeStyle='#eef4ef'; ctx.lineWidth=3*S;
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
     }
-    ctx.strokeStyle='#eef4ef'; ctx.lineWidth=3*S;
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
 
     ctx.textAlign='center'; ctx.textBaseline='alphabetic';
     let labelY = cy+r+16*S;
@@ -384,16 +386,18 @@ async function renderLineupToCanvas(cv, onlyIcons, noPitch){
     ctx.textAlign='center';
     for(const p of state.bench){
       const r=15*S;
-      ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2);
-      ctx.fillStyle=state.teamColor; ctx.fill();
       const img = await loadImg(p.photo);
-      if(img){ drawCircleImage(ctx,img,bx+r,benchY,r); }
-      else{
+      if(img){
+        // com foto, sem fundo colorido nem anel — só a foto
+        drawRoundedImage(ctx,img,bx+r,benchY,r,5*S);
+      } else {
+        ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2);
+        ctx.fillStyle=state.teamColor; ctx.fill();
         ctx.fillStyle='#fff'; ctx.font=`600 ${11*S}px 'Oswald', sans-serif`; ctx.textBaseline='middle';
         ctx.fillText(p.number||'', bx+r, benchY+1);
+        ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5*S;
+        ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2); ctx.stroke();
       }
-      ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=1.5*S;
-      ctx.beginPath(); ctx.arc(bx+r,benchY,r,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle='#eef4ef'; ctx.font=`${9.5*S}px 'Inter', sans-serif`; ctx.textBaseline='alphabetic';
       ctx.fillText((p.name||'').split(' ')[0]||'', bx+r, benchY+26*S);
       bx += 78*S;

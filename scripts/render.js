@@ -68,7 +68,7 @@ function render(){
     t.style.left = (portraitMode ? p.y : p.x)+'%';
     t.style.top = (portraitMode ? p.x : p.y)+'%';
     t.innerHTML = `
-      <div class="circle" style="--kit:${state.teamColor}">
+      <div class="circle ${p.photo?'has-photo':''}" style="--kit:${state.teamColor}">
         ${p.photo? `<img src="${p.photo}">` : `<span class="token-num">${p.number||''}</span>`}
       </div>
       <div class="tname">${p.name||'Player '+(i+1)}</div>
@@ -105,7 +105,7 @@ function render(){
     c.className='bench-card';
     c.dataset.index = i;
     c.innerHTML = `
-      <div class="circle" style="--kit:${state.teamColor}">
+      <div class="circle ${p.photo?'has-photo':''}" style="--kit:${state.teamColor}">
         ${p.photo? `<img src="${p.photo}">` : `<span class="num">${p.number||''}</span>`}
       </div>
       <div class="bname">${p.name||'Sub '+(i+1)}</div>

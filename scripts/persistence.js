@@ -33,7 +33,7 @@ document.getElementById('loadFile').addEventListener('change', e=>{
     document.getElementById('teamName').value = state.teamName||'';
     document.getElementById('teamColor').value = state.teamColor||'#2f6fed';
     document.getElementById('formationSelect').value = state.formation||'4-4-2';
-    document.getElementById('orientationSelect').value = state.orientation || 'landscape';
+    syncOrientationButtons();
     document.getElementById('badgeUpload').innerHTML = state.badge? `<img src="${state.badge}">` : '+';
     render();
   };

@@ -94,8 +94,11 @@ h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
   font-size:13.5px;
   font-family:inherit;
 }
+/* tarja vertical fina em vez da barra larga: só uma amostra de cor
+   discreta, não precisa ocupar a largura toda do campo pra fazer o
+   que faz (abrir o seletor de cor nativo do navegador) */
 .field input[type=color]{
-  width:100%;
+  width:28px;
   height:34px;
   background:var(--panel-2);
   border:1px solid var(--line);
@@ -260,7 +263,7 @@ h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
 .export-item .label b{font-weight:600;font-size:13px;}
 .export-item .label span{font-size:11px;color:var(--muted);}
 .badge-upload{
-  width:34px;height:34px;border-radius:50%;
+  width:34px;height:34px;border-radius:7px;
   background:var(--panel-2);
   border:1px solid var(--line);
   display:flex;align-items:center;justify-content:center;
@@ -270,4 +273,13 @@ h1,h2,.jersey-num,.token-num{font-family:'Oswald',sans-serif;}
 }
 .badge-upload:hover{filter:brightness(1.15);}
 .badge-upload:active{transform:translateY(1px) scale(.96); filter:brightness(.9);}
-.badge-upload img{width:100%;height:100%;object-fit:cover;}
+/* contain (não cover): escudo aparece inteiro dentro do quadrado, sem
+   cortar as bordas de escudos que não são quadrados */
+.badge-upload img{width:100%;height:100%;object-fit:contain;}
+
+/* dois ícones (paisagem/retrato) no lugar do dropdown de texto — mesma
+   altura 34px dos outros campos da grade de controles, então reduz o
+   icon-btn padrão (40x40) pra caber alinhado com o resto da linha */
+.orientation-toggle{display:flex;gap:6px;}
+.orientation-btn{width:34px;height:34px;}
+.orientation-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;}

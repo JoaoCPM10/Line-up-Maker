@@ -26,6 +26,9 @@
   background:var(--kit,var(--accent));
 }
 .bench-card .circle img{width:100%;height:100%;object-fit:cover;}
+/* com foto, some o círculo colorido/borda — só a foto, mesmo tamanho de
+   sempre, cantos arredondados pequenos em vez de círculo */
+.bench-card .circle.has-photo{background:none;border:none;border-radius:6px;}
 .bench-card .circle .num{color:#fff;font-size:14px;font-weight:600;}
 .bench-card .bname{font-size:10.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bench-card .bpos{font-size:9px;color:var(--muted);}

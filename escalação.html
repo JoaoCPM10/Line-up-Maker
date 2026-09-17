@@ -71,10 +71,14 @@
     </div>
     <div class="field">
       <label>Orientation</label>
-      <select id="orientationSelect">
-        <option value="landscape">Landscape (16:9)</option>
-        <option value="portrait">Portrait (9:16)</option>
-      </select>
+      <div class="orientation-toggle" id="orientationToggle">
+        <button type="button" class="icon-btn orientation-btn" id="orientLandscapeBtn" data-tip="Landscape (16:9)" aria-label="Landscape (16:9)" aria-pressed="true">
+          <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+        </button>
+        <button type="button" class="icon-btn orientation-btn" id="orientPortraitBtn" data-tip="Portrait (9:16)" aria-label="Portrait (9:16)" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>
+        </button>
+      </div>
     </div>
     <div class="field">
       <label>Team badge</label>

@@ -31,8 +31,28 @@ document.getElementById('formationSelect').addEventListener('change', e=>{
   state.formation = key;
   render();
 });
-document.getElementById('orientationSelect').addEventListener('change', e=>{
-  state.orientation = e.target.value;
+// Dois ícones (paisagem/retrato) no lugar do dropdown de texto que existia
+// antes — mais direto pro usuário. syncOrientationButtons() é a única fonte
+// de verdade de qual dos dois fica destacado, chamada tanto no clique quanto
+// sempre que "state.orientation" muda por outro caminho (reset, carregar
+// arquivo), pra nunca ficar com o botão errado marcado.
+const orientLandscapeBtn = document.getElementById('orientLandscapeBtn');
+const orientPortraitBtn = document.getElementById('orientPortraitBtn');
+function syncOrientationButtons(){
+  const isPortrait = state.orientation === 'portrait';
+  orientLandscapeBtn.classList.toggle('primary', !isPortrait);
+  orientLandscapeBtn.setAttribute('aria-pressed', String(!isPortrait));
+  orientPortraitBtn.classList.toggle('primary', isPortrait);
+  orientPortraitBtn.setAttribute('aria-pressed', String(isPortrait));
+}
+orientLandscapeBtn.addEventListener('click', ()=>{
+  state.orientation = 'landscape';
+  syncOrientationButtons();
+  render();
+});
+orientPortraitBtn.addEventListener('click', ()=>{
+  state.orientation = 'portrait';
+  syncOrientationButtons();
   render();
 });
 document.getElementById('badgeUpload').addEventListener('click', ()=>document.getElementById('badgeFile').click());
@@ -48,7 +68,7 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   document.getElementById('teamName').value = state.teamName;
   document.getElementById('teamColor').value = state.teamColor;
   document.getElementById('formationSelect').value = state.formation;
-  document.getElementById('orientationSelect').value = state.orientation;
+  syncOrientationButtons();
   document.getElementById('badgeUpload').innerHTML='+';
   render();
 });

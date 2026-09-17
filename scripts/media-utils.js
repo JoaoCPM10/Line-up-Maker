@@ -57,12 +57,23 @@ function loadImg(src){
   });
 }
 
-function drawCircleImage(ctx,img,cx,cy,r){
+// Recorta a imagem num quadrado de lado 2r centrado em cx,cy com cantos
+// arredondados (não círculo) — usada quando o jogador tem foto, pra tirar
+// o fundo colorido/anel branco e deixar só a foto (ver renderLineupToCanvas
+// em canvas-export.js). Substituiu um drawCircleImage() que recortava em
+// círculo — não tem mais chamador desde que a foto deixou de ficar atrás
+// de um círculo colorido, então foi removido em vez de deixado morto.
+function drawRoundedImage(ctx,img,cx,cy,r,radius){
+  const x = cx-r, y = cy-r, w = r*2, h = r*2;
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.moveTo(x+radius,y);
+  ctx.arcTo(x+w,y,x+w,y+h,radius);
+  ctx.arcTo(x+w,y+h,x,y+h,radius);
+  ctx.arcTo(x,y+h,x,y,radius);
+  ctx.arcTo(x,y,x+w,y,radius);
   ctx.closePath();
   ctx.clip();
-  ctx.drawImage(img,cx-r,cy-r,r*2,r*2);
+  ctx.drawImage(img,x,y,w,h);
   ctx.restore();
 }

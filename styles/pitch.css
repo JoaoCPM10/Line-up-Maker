@@ -62,12 +62,13 @@
   z-index:5;
 }
 .header-tag .hbadge{
-  width:34px;height:34px;border-radius:50%;
+  width:34px;height:34px;border-radius:7px;
   background:rgba(255,255,255,.12);
   border:1.5px solid rgba(255,255,255,.55);
   overflow:hidden;flex-shrink:0;
 }
-.header-tag .hbadge img{width:100%;height:100%;object-fit:cover;}
+/* contain (não cover): escudo aparece inteiro, sem cortar as bordas */
+.header-tag .hbadge img{width:100%;height:100%;object-fit:contain;}
 .header-tag .htext .hname{
   color:var(--chalk);
   font-family:'Oswald',sans-serif;
@@ -98,6 +99,11 @@
   background:var(--kit,var(--accent));
 }
 .token .circle img{width:100%;height:100%;object-fit:cover;}
+/* com foto, some o círculo colorido/borda/sombra — só a foto, mesmo
+   tamanho de sempre, cantos arredondados pequenos em vez de círculo */
+.token .circle.has-photo{
+  background:none;border:none;box-shadow:none;border-radius:8px;
+}
 .token .token-num{color:#fff;font-size:26px;font-weight:600;}
 .token .tname{
   margin-top:3px;
