@@ -63,7 +63,7 @@ document.getElementById('modalPhotoFile').addEventListener('change', e=>{
   if(!f) return;
   resizeImageFile(f, 320, dataUrl=>{
     document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
-  });
+  }, 'image/png');
 });
 
 let nameSuggestTimer = null;

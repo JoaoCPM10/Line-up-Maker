@@ -27,10 +27,6 @@
       <div class="team-suggestions" id="teamSuggestions" hidden></div>
     </div>
     <div class="field">
-      <label>Jersey color</label>
-      <input type="color" id="teamColor" value="#2f6fed">
-    </div>
-    <div class="field">
       <label>Formation</label>
       <select id="formationSelect">
         <optgroup label="Back two">
@@ -69,7 +65,7 @@
         </optgroup>
       </select>
     </div>
-    <div class="field">
+    <div class="field field-narrow">
       <label>Orientation</label>
       <div class="orientation-toggle" id="orientationToggle">
         <button type="button" class="icon-btn orientation-btn" id="orientLandscapeBtn" data-tip="Landscape (16:9)" aria-label="Landscape (16:9)" aria-pressed="true">
@@ -80,7 +76,7 @@
         </button>
       </div>
     </div>
-    <div class="field">
+    <div class="field field-narrow">
       <label>Team badge</label>
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="badge-upload" id="badgeUpload">+</div>
@@ -122,6 +118,7 @@
     <button class="icon-btn ghost danger" id="resetBtn" data-tip="Clear all" aria-label="Clear all">
       <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
     </button>
+    <input type="color" class="icon-btn color-swatch-btn" id="teamColor" value="#2f6fed" data-tip="Color" aria-label="Color">
   </div>
 
   <div class="pitch-wrap" id="pitchWrap">

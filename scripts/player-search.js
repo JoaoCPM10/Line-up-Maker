@@ -163,7 +163,7 @@ function renderNameSuggestions(candidates){
       urlToDataUrl(c.photo, 320, dataUrl=>{
         if(dataUrl) document.getElementById('modalPhotoPrev').innerHTML = `<img src="${dataUrl}">`;
         box.hidden = true; box.innerHTML='';
-      });
+      }, 'image/png');
     });
   });
 }
