@@ -83,13 +83,17 @@
   position:absolute;
   transform:translate(-50%,-50%);
   display:flex;flex-direction:column;align-items:center;
-  cursor:grab;
+  cursor:pointer;
   user-select:none;
   touch-action:none;
   z-index:4;
   width:76px;
 }
-.token:active{cursor:grabbing;}
+/* arrasto só vira "grab" quando ligado no botão dedicado (dragEnabled em
+   render.js); desligado, o cursor de ponteiro normal já indica que só o
+   clique (seleção/troca/edição) funciona */
+.pitch-wrap.drag-enabled .token{cursor:grab;}
+.pitch-wrap.drag-enabled .token:active{cursor:grabbing;}
 .token .circle{
   width:68px;height:68px;border-radius:50%;
   border:2.5px solid var(--chalk);

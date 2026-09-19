@@ -16,6 +16,12 @@ const benchStrip = document.getElementById('benchStrip');
 // clique no token abaixo pra como os dois gestos são diferenciados).
 let swapSelectedIndex = null;
 
+// Arrasto começa desligado: só clique (seleciona/troca/edita) funciona até o
+// usuário ligar de propósito no botão dedicado — evita que um microarrasto
+// sem querer (trackpad, clique rápido) mexa um ícone no meio de uma
+// sequência de cliques pensada pra trocar posições (ver handleTokenSwapClick).
+let dragEnabled = false;
+
 function clearSwapSelection(){
   if(swapSelectedIndex === null) return;
   const prevEl = pitchWrap.querySelector(`.token[data-index="${swapSelectedIndex}"]`);
@@ -134,6 +140,7 @@ function render(){
 function attachDrag(el, index){
   let dragging=false, moved=false;
   el.addEventListener('pointerdown', e=>{
+    if(!dragEnabled) return;
     dragging=true; moved=false;
     el.setPointerCapture(e.pointerId);
   });
