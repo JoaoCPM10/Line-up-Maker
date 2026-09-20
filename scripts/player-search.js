@@ -113,6 +113,40 @@ async function searchTeamBadge(name){
   return [];
 }
 
+// Cor primária de referência dos 20 clubes da Premier League 2025-26. A API
+// de escudo (searchteams.php) não devolve cor oficial de clube de futebol na
+// versão gratuita — só o badge — então isso é uma tabela local, mantida à
+// mão, não um valor "oficial" de marca. Cobre só Premier League de propósito
+// (ver decisão do usuário); qualquer outro time cai no cinza default.
+const PL_TEAM_COLORS = [
+  { keys:['arsenal'], color:'#EF0107' },
+  { keys:['aston villa','villa'], color:'#670E36' },
+  { keys:['bournemouth','afc bournemouth'], color:'#DA291C' },
+  { keys:['brentford'], color:'#E2231A' },
+  { keys:['brighton','brighton & hove albion','brighton and hove albion'], color:'#0057B8' },
+  { keys:['burnley'], color:'#6C1D45' },
+  { keys:['chelsea'], color:'#034694' },
+  { keys:['crystal palace','palace'], color:'#C4122E' },
+  { keys:['everton'], color:'#003399' },
+  { keys:['fulham'], color:'#000000' },
+  { keys:['leeds united','leeds'], color:'#003090' },
+  { keys:['liverpool'], color:'#C8102E' },
+  { keys:['manchester city','man city'], color:'#6CABDD' },
+  { keys:['manchester united','man united','man utd'], color:'#DA291C' },
+  { keys:['newcastle united','newcastle'], color:'#241F20' },
+  { keys:['nottingham forest','forest'], color:'#DD0000' },
+  { keys:['sunderland'], color:'#EB172B' },
+  { keys:['tottenham hotspur','tottenham','spurs'], color:'#132257' },
+  { keys:['west ham united','west ham'], color:'#7A263A' },
+  { keys:['wolverhampton wanderers','wolverhampton','wolves'], color:'#FDB913' },
+];
+const PL_TEAM_COLOR_DEFAULT = '#8a8f98';
+function lookupPLColor(teamName){
+  const key = (teamName||'').trim().toLowerCase();
+  const entry = PL_TEAM_COLORS.find(e => e.keys.includes(key));
+  return entry ? entry.color : PL_TEAM_COLOR_DEFAULT;
+}
+
 function renderTeamSuggestions(candidates){
   const box = document.getElementById('teamSuggestions');
   if(!candidates.length){ box.hidden = true; box.innerHTML=''; return; }
@@ -133,7 +167,9 @@ function renderTeamSuggestions(candidates){
         if(dataUrl){
           state.teamName = c.label;
           state.badge = dataUrl;
+          state.teamColor = lookupPLColor(c.label);
           document.getElementById('teamName').value = c.label;
+          document.getElementById('teamColor').value = state.teamColor;
           document.getElementById('badgeUpload').innerHTML = `<img src="${dataUrl}">`;
           render();
         }
